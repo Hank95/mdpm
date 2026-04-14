@@ -2,7 +2,6 @@
 name: pm:help
 description: List all MDPM commands with a one-line description
 argument-hint: ""
-disable-model-invocation: true
 ---
 
 # /pm:help

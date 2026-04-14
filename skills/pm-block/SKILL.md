@@ -2,7 +2,6 @@
 name: pm:block
 description: Mark a task as blocked with a reason appended to the work log
 argument-hint: "<task id or partial title> [reason]"
-disable-model-invocation: true
 ---
 
 # /pm:block
