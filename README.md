@@ -53,6 +53,7 @@ All commands are namespaced under `/pm:`.
 | `/pm:next` | Recommends the single best task to start next |
 | `/pm:new <title>` | Creates a new backlog task with auto-incrementing ID |
 | `/pm:start <id>` | Moves a backlog task to `active/` and begins work |
+| `/pm:block <id> <reason>` | Marks a task blocked (status field) with a reason appended to the work log |
 | `/pm:done <id>` | Completes a task, moves to `done/`, checks for unblocked dependents |
 | `/pm:standup [audience]` | Generates a stakeholder-ready standup summary |
 

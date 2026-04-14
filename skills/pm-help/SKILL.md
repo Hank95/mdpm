@@ -22,6 +22,7 @@ Daily use
   /pm:next                 Recommend the next task to start
   /pm:new <title>          Create a new backlog task
   /pm:start <id>           Move a backlog task to active and begin work
+  /pm:block <id> <reason>  Mark a task blocked with a reason
   /pm:done <id>            Complete a task, check for unblocked dependents
   /pm:standup [audience]   Generate a stakeholder-ready standup summary
 
