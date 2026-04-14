@@ -77,8 +77,8 @@ Query Wrike for tasks:
 - Not already tracked locally (no matching `wrike_id` in any MDPM task)
 
 For each new Wrike task, create a file in `tasks/inbox/`:
-- Filename: slugified title
-- ID: temporary `PRJ-INBOX-XXX` — a real ID gets assigned during triage
+- Filename: `<id>-<slugified title>.md` (e.g. `PRJ-INBOX-003-update-hero-copy.md`)
+- ID: temporary `PRJ-INBOX-XXX` — a real ID gets assigned during triage (filename is renamed at that point too)
 - `wrike_id`: the Wrike task ID
 - Populate objective from Wrike description
 

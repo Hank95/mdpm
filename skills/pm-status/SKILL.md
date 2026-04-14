@@ -21,7 +21,10 @@ Read the project's task state and produce a concise dashboard for the user.
    - `tasks/inbox/*.md` — untriaged incoming requests
    - `tasks/done/*.md` — only count for a "recently completed" tally (items updated in the last 7 days)
 
-4. **Identify blockers.** Any task with `status: blocked` in frontmatter, or any active task whose `depends_on` references a task not in `done/`.
+4. **Identify blockers vs waiting tasks.** Two distinct concepts:
+   - **Blocked** — a task with `status: blocked` in frontmatter. Something external (review, external team, missing info) is stopping progress. These deserve attention.
+   - **Waiting** — a task whose `depends_on` references another task not yet in `done/`, but the dependency is itself in `backlog/` or `active/` (i.e. just hasn't shipped yet). These are sequenced, not stuck. Don't mix them with blockers.
+   - **Orphaned** — `depends_on` references an ID that doesn't exist anywhere. Call this out separately as a data issue.
 
 5. **Check for overdue tasks** — any active or backlog task with a `due:` date earlier than today.
 
@@ -42,7 +45,10 @@ Read the project's task state and produce a concise dashboard for the user.
 - <titles only, no detail — suggest /pm:inbox to triage>
 
 ## Blockers
-- [PRJ-123] blocked on [PRJ-099] "<title of dep>"
+- [PRJ-123] blocked — <reason from work log or notes>
+
+## Waiting on upstream
+- [PRJ-123] waiting on [PRJ-099] "<title of dep>" (<status of dep>)
 
 ## Overdue
 - [PRJ-123] was due YYYY-MM-DD

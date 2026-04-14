@@ -24,12 +24,12 @@ Create a new task. Arguments `$ARGUMENTS` are the task title / brief description
 
 4. **Parse the title.** `$ARGUMENTS` is the raw description. Derive:
    - A short, descriptive `title:` (5-10 words)
-   - A filename: kebab-case slug of the title + `.md` (e.g. `add-user-login.md`)
+   - A filename: `<ID>-<kebab-case slug>.md` (e.g. `PRJ-002-add-user-login.md`). The ID prefix in the filename makes tasks sortable via `ls` and greppable by ID. Never omit it.
    - If the user's message contains obvious priority hints ("urgent", "high-pri"), set priority accordingly. Otherwise default to `medium`.
 
 5. **Ask the user for anything unclear** — only if necessary. Don't pepper them with questions for trivial tasks. Minimum viable task needs: title, priority, and a rough objective. Tags, due dates, and dependencies can be left empty.
 
-6. **Write the file** to `tasks/backlog/<slug>.md` using this template:
+6. **Write the file** to `tasks/backlog/<ID>-<slug>.md` using this template:
 
 ```markdown
 ---

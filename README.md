@@ -49,11 +49,19 @@ All commands are namespaced under `/pm:`.
 
 | Command | What it does |
 | --- | --- |
-| `/pm:status` | Dashboard — active work, priorities, blockers, overdue, recently shipped |
+| `/pm:status` | Dashboard — active work, priorities, blockers (vs waiting), overdue, recently shipped |
 | `/pm:next` | Recommends the single best task to start next |
 | `/pm:new <title>` | Creates a new backlog task with auto-incrementing ID |
+| `/pm:start <id>` | Moves a backlog task to `active/` and begins work |
 | `/pm:done <id>` | Completes a task, moves to `done/`, checks for unblocked dependents |
 | `/pm:standup [audience]` | Generates a stakeholder-ready standup summary |
+
+### Editing & finding
+
+| Command | What it does |
+| --- | --- |
+| `/pm:edit <id> [k=v…]` | Change priority, due date, tags, assignee, dependencies |
+| `/pm:search <query>` | Find tasks by title, tag, ID, assignee, or body content |
 
 ### Planning & triage
 
@@ -61,6 +69,13 @@ All commands are namespaced under `/pm:`.
 | --- | --- |
 | `/pm:plan <feature>` | Breaks a feature into 3–8 tasks with dependency mapping |
 | `/pm:inbox` | Walks through `tasks/inbox/` one item at a time |
+
+### Maintenance
+
+| Command | What it does |
+| --- | --- |
+| `/pm:archive [--older-than N]` | Moves aged `done/` tasks to `tasks/archive/` to reduce clutter |
+| `/pm:board [port]` | Prints the command to launch the local kanban board |
 
 ### Optional sync (requires an MCP server for the target system)
 

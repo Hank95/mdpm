@@ -41,6 +41,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
      active/.gitkeep
      done/.gitkeep
      inbox/.gitkeep
+     archive/.gitkeep   # for /pm:archive to move aged done tasks into
    docs/
      ROADMAP.md       (if missing)
      DECISIONS.md     (if missing)
@@ -49,7 +50,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
      config.json
    ```
 
-   Use the templates shipped with the MDPM plugin at `${CLAUDE_PLUGIN_ROOT}/templates/` where possible. Don't overwrite existing files — if `ROADMAP.md` exists, leave it alone.
+   Use the templates shipped with the MDPM plugin (find them at `${CLAUDE_PLUGIN_ROOT}/templates/` if you need to read them) — but do NOT write the plugin path into user files. Don't overwrite existing files: if `ROADMAP.md` exists, leave it alone.
 
 4. **Write `.mdpm/config.json`** with the answers from step 2:
    ```json
@@ -68,13 +69,18 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
    }
    ```
 
-5. **Add the rules file reference to `CLAUDE.md`.** If a `CLAUDE.md` exists, append a Project Tracking section pointing at the plugin's rules file. If not, create one from the template. The reference should look like:
+5. **Ensure `CLAUDE.md` has a Project Tracking section.** If a `CLAUDE.md` exists at the repo root, append the section below (don't clobber existing content). If not, create one by copying `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` into the repo root.
+
+   **Critical:** the block you write into the user's `CLAUDE.md` must NOT contain any `${CLAUDE_PLUGIN_ROOT}` references or absolute paths. The plugin loads its own rules file automatically when skills run — the project's `CLAUDE.md` just needs to orient Claude to the directory layout and point at `/pm:help`.
+
+   Use this exact block (literally — do not expand any variables, do not insert absolute paths):
 
    ```
    ## Project Tracking
-   This project uses MDPM. See the conventions at `${CLAUDE_PLUGIN_ROOT}/rules/project-tracking.md`.
 
-   Quick ref: `tasks/backlog/` queued, `tasks/active/` in progress, `tasks/done/` shipped, `tasks/inbox/` untriaged.
+   This project uses **MDPM** (Markdown Project Manager).
+
+   Quick ref: `tasks/inbox/` untriaged, `tasks/backlog/` queued, `tasks/active/` in progress, `tasks/done/` shipped, `tasks/archive/` aged-out.
    Run `/pm:help` to list commands, `/pm:status` for a dashboard.
    ```
 

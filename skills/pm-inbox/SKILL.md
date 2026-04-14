@@ -35,8 +35,8 @@ Walk through `tasks/inbox/` one item at a time and decide what to do with each.
    ```
 
 4. **Process the user's choice**:
-   - **Accept:** Ask for priority (default medium), tags, optional due date. Update frontmatter. Assign a real task ID (replace any `PRJ-INBOX-*` placeholder with the next sequential `PRJ-XXX`). Move to `tasks/backlog/`.
-   - **Start now:** Same as Accept, but move to `tasks/active/` and set `status: active`. Append work log entry: "Triaged from inbox, started work."
+   - **Accept:** Ask for priority (default medium), tags, optional due date. Update frontmatter. Assign a real task ID (replace any `PRJ-INBOX-*` placeholder with the next sequential `PRJ-XXX`). Rename the file to `<new-id>-<slug>.md` to match the MDPM filename convention. Move to `tasks/backlog/`.
+   - **Start now:** Same as Accept (including the filename rename), but move to `tasks/active/` and set `status: active`. Append work log entry: "Triaged from inbox, started work."
    - **Plan:** Keep the inbox file in place, invoke `/pm:plan` logic on its contents. After planning, move the original inbox item to `done/` with a work log entry "Replaced by decomposition into PRJ-XXX, PRJ-YYY."
    - **Reject:** Confirm with the user. If the task has a `jira_id` or `wrike_id`, offer to close it in the external system via sync. Then delete the file (inbox is the ONLY directory where deletion is allowed).
    - **Snooze:** No change. Move to next item.

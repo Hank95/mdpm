@@ -89,7 +89,7 @@ Query Jira for issues:
 
 For each new issue:
 - Create a file in `tasks/inbox/` with:
-  - Filename: slugified summary
+  - Filename: `<id>-<slugified summary>.md` (e.g. `PRJ-INBOX-003-fix-broken-login.md`)
   - `id: PRJ-INBOX-XXX` (placeholder)
   - `jira_id: ENG-451`
   - `jira_project: ENG`

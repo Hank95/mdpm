@@ -11,7 +11,8 @@ tasks/
   inbox/     # untriaged incoming requests (may be auto-populated by Jira/Wrike sync)
   backlog/   # queued work, prioritized
   active/    # in progress right now
-  done/      # completed work — never delete from here
+  done/      # recently completed work — never delete from here
+  archive/   # aged-out completed tasks moved aside by /pm:archive
 docs/
   ROADMAP.md    # current milestone and future work
   DECISIONS.md  # architecture decision log (ADR)
@@ -20,6 +21,10 @@ docs/
   config.json        # per-project MDPM config (ID prefix, sync settings)
   sync-state.json    # local sync cache — gitignored
 ```
+
+## Filename Convention
+
+Every task file is named `<ID>-<kebab-slug>.md`, e.g. `PRJ-042-add-user-login.md`. The ID prefix makes tasks sortable and greppable from the filesystem. When a task's `title:` changes via `/pm:edit`, the file is renamed to keep the slug accurate.
 
 ## The Golden Rules
 
@@ -74,10 +79,13 @@ Context, links, people to coordinate with.
 2. **Triage.** `/pm:inbox` walks through incoming items.
 3. **Plan.** `/pm:plan <feature>` breaks large work into sized tasks.
 4. **Pick.** `/pm:next` recommends what to start, or `/pm:status` shows the dashboard.
-5. **Work.** Move the task file from `backlog/` to `active/`. Update the work log as you go.
-6. **Ship.** `/pm:done <id>` moves to `done/`, checks dependents, updates CHANGELOG.
-7. **Report.** `/pm:standup` produces a stakeholder summary.
-8. **(Optional) Sync.** `/pm:sync-jira` / `/pm:sync-wrike` push status outward.
+5. **Start.** `/pm:start <id>` moves the task to `active/` and adds a "started work" log entry.
+6. **Work.** Update the work log as you go. `/pm:edit` adjusts metadata (priority, due, tags).
+7. **Ship.** `/pm:done <id>` moves to `done/`, checks dependents, updates CHANGELOG.
+8. **Report.** `/pm:standup` produces a stakeholder summary.
+9. **Find things.** `/pm:search <query>` across all tasks, any status.
+10. **Tidy.** `/pm:archive` periodically moves old `done/` tasks to `archive/`.
+11. **(Optional) Sync.** `/pm:sync-jira` / `/pm:sync-wrike` push status outward.
 
 ## How Claude Should Behave
 
@@ -94,7 +102,8 @@ When working in a repo that uses MDPM:
 ## Dependencies
 
 - `depends_on: [PRJ-123]` means "this task cannot start until PRJ-123 is in `done/`".
-- A task in `active/` or `backlog/` with unmet dependencies shows up as a blocker in `/pm:status`.
+- A task with unmet dependencies is **waiting**, not blocked. It's just sequenced.
+- A task with `status: blocked` is genuinely stuck on something external (review, missing info, another team). Treat these as high-signal in `/pm:status`.
 - When a task is completed, `/pm:done` automatically checks whether any dependent tasks are now unblocked and reports them.
 
 ## Priorities

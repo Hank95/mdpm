@@ -47,7 +47,7 @@ Argument `$ARGUMENTS` is either:
 
 6. **Create the task files** once confirmed. For each task:
    - Generate a unique ID using the same rules as `/pm:new` (scan all existing IDs, pick max + 1).
-   - Use the template from `/pm:new`.
+   - Use the template from `/pm:new`, including the `<ID>-<slug>.md` filename convention.
    - Populate `depends_on` with the correct IDs of sibling tasks.
    - Set `tags` consistently across the set (often a shared feature name).
    - Write to `tasks/backlog/`.
