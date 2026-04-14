@@ -19,17 +19,17 @@ A lightweight, markdown-native project tracker for [Claude Code](https://claude.
 
 ## Install
 
-MDPM is a Claude Code plugin.
+MDPM is a Claude Code plugin. Run these one at a time in a Claude Code session:
 
-```bash
-# 1. Add this marketplace to Claude Code
+```
 /plugin marketplace add Hank95/mdpm
-
-# 2. Install the plugin
-/plugin install mdpm
+/plugin install mdpm@mdpm
+/reload-plugins
 ```
 
-(Or clone the repo and point Claude Code at it directly — see [Development](#development).)
+> The `@mdpm` suffix disambiguates the plugin name from the marketplace name (both are `mdpm`); some Claude Code versions need it to resolve the install correctly.
+
+(Or clone the repo and point Claude Code at a local path — see [Development](#development).)
 
 Once installed, run inside any repo:
 
@@ -263,6 +263,33 @@ Edit this file directly to change behavior, or rerun `/pm:config`.
 4. **Append-only history.** Never rewrite work logs.
 5. **No lock-in.** Sync to Jira/Wrike is one-way, opt-in, and leaves your local state intact.
 6. **Claude-native.** Conventions written so an AI coding agent can do PM work alongside engineering in the same session.
+
+---
+
+## Troubleshooting
+
+**`/pm:help` returns `Unknown skill: pm:help` after install.** Your Claude Code version may be silently rejecting SKILL.md files because of an unrecognized frontmatter field. This was fixed in **v0.2.1**. Update and reinstall:
+
+```
+/plugin marketplace update mdpm
+/plugin update mdpm
+/reload-plugins
+```
+
+If you're still on v0.2.0 or older, do a clean reinstall:
+
+```
+/plugin uninstall mdpm
+/plugin marketplace add Hank95/mdpm
+/plugin install mdpm@mdpm
+/reload-plugins
+```
+
+Verify by checking `/reload-plugins` output — the skill count should increase by 17 (the number of `/pm:*` commands MDPM ships).
+
+**`/plugin marketplace add` opens a TUI prompt on mobile / tmux sessions.** Paste only the source (e.g. `Hank95/mdpm`) — not the whole sequence of commands. Then run `/plugin install mdpm@mdpm` separately.
+
+**Board server says port is busy.** `python3 board/serve.py` auto-walks forward to the next free port starting at 8765. Pass `--port <N>` to start somewhere else, or `--strict-port` to fail instead of falling back.
 
 ---
 
