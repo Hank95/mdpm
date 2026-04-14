@@ -2,7 +2,10 @@
   "name": "mdpm",
   "owner": {
     "name": "Henry",
-    "url": "https://github.com/hank95"
+    "url": "https://github.com/Hank95"
+  },
+  "metadata": {
+    "description": "Markdown-native project management for Claude Code."
   },
   "plugins": [
     {
@@ -11,7 +14,14 @@
       "description": "Markdown Project Manager — lightweight markdown-native task tracking for Claude Code, with optional Jira/Wrike sync and a zero-dependency kanban board.",
       "version": "0.1.0",
       "category": "productivity",
-      "tags": ["project-management", "kanban", "markdown", "jira", "wrike"]
+      "tags": ["project-management", "kanban", "markdown", "jira", "wrike", "tasks", "pm"],
+      "author": {
+        "name": "Henry",
+        "url": "https://github.com/Hank95"
+      },
+      "homepage": "https://github.com/Hank95/mdpm",
+      "repository": "https://github.com/Hank95/mdpm",
+      "license": "MIT"
     }
   ]
 }

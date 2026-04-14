@@ -23,7 +23,7 @@ MDPM is a Claude Code plugin.
 
 ```bash
 # 1. Add this marketplace to Claude Code
-/plugin marketplace add hank95/mdpm
+/plugin marketplace add Hank95/mdpm
 
 # 2. Install the plugin
 /plugin install mdpm
@@ -265,12 +265,25 @@ Edit this file directly to change behavior, or rerun `/pm:config`.
 
 ---
 
+## Updating
+
+Users can pull new versions with:
+
+```
+/plugin marketplace update mdpm
+/plugin update mdpm
+```
+
+Releases are tagged with semver git tags (e.g. `v0.2.0`). The `version` field in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` must match the tag.
+
+---
+
 ## Development
 
 Clone and point Claude Code at the local plugin:
 
 ```bash
-git clone https://github.com/hank95/mdpm
+git clone https://github.com/Hank95/mdpm
 cd mdpm
 # In Claude Code:
 /plugin install ./mdpm
