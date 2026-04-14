@@ -2,7 +2,6 @@
 name: pm:sync-wrike
 description: Sync task state with Wrike via MCP (optional, graceful degradation)
 argument-hint: "[push|pull|both]"
-disable-model-invocation: true
 ---
 
 # /pm:sync-wrike

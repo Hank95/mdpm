@@ -2,7 +2,6 @@
 name: pm:start
 description: Move a task from backlog to active and begin work
 argument-hint: "<task id or partial title>"
-disable-model-invocation: true
 ---
 
 # /pm:start
