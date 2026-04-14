@@ -10,6 +10,8 @@ tags: [gallery, frontend, btr-platform]
 depends_on: []
 assigned_to: Henry
 wrike_id: null
+jira_id: null
+jira_project: null
 ---
 
 # Gallery Page Component

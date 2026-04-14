@@ -1,0 +1,23 @@
+# MDPM local sync cache — do not commit
+.mdpm/sync-state.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node (in case consumers run the board behind a node proxy)
+node_modules/
+
+# Logs
+*.log

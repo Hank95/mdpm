@@ -1,0 +1,21 @@
+{
+  "name": "mdpm",
+  "version": "0.1.0",
+  "description": "Markdown Project Manager — a lightweight, markdown-native project tracking system for Claude Code. Tasks live as .md files with YAML frontmatter; status is a directory. Optional Jira/Wrike sync via MCP.",
+  "author": {
+    "name": "Henry",
+    "url": "https://github.com/hank95/mdpm"
+  },
+  "homepage": "https://github.com/hank95/mdpm",
+  "repository": "https://github.com/hank95/mdpm",
+  "license": "MIT",
+  "keywords": [
+    "project-management",
+    "kanban",
+    "markdown",
+    "tasks",
+    "jira",
+    "wrike",
+    "pm"
+  ]
+}
