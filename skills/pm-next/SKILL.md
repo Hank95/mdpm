@@ -1,6 +1,8 @@
 ---
+name: pm:next
 description: Recommend the next task to work on based on priority, dependencies, and due dates
 argument-hint: ""
+disable-model-invocation: true
 ---
 
 # /pm:next

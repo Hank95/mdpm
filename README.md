@@ -270,7 +270,7 @@ mdpm/
 ├── .claude-plugin/
 │   ├── plugin.json          # plugin manifest
 │   └── marketplace.json     # marketplace listing
-├── commands/pm/             # slash commands (one per .md)
+├── skills/                  # one /pm:<name> skill per subdirectory (SKILL.md)
 ├── rules/
 │   └── project-tracking.md  # full conventions (loaded into context)
 ├── templates/               # files copied into user repos during /pm:config

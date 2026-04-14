@@ -1,6 +1,8 @@
 ---
+name: pm:done
 description: Complete a task — move to tasks/done/, append final work log, check for unblocked dependents
 argument-hint: "<task id or partial title>"
+disable-model-invocation: true
 ---
 
 # /pm:done

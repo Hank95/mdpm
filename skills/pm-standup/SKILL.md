@@ -1,6 +1,8 @@
 ---
+name: pm:standup
 description: Generate a stakeholder-ready standup summary (yesterday / today / blockers)
 argument-hint: "[audience]"
+disable-model-invocation: true
 ---
 
 # /pm:standup

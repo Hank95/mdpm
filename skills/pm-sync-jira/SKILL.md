@@ -1,6 +1,8 @@
 ---
+name: pm:sync-jira
 description: Sync task state with Jira via MCP (optional, graceful degradation)
 argument-hint: "[push|pull|both]"
+disable-model-invocation: true
 ---
 
 # /pm:sync-jira

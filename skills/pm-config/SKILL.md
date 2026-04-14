@@ -1,6 +1,8 @@
 ---
+name: pm:config
 description: Initialize or reconfigure MDPM (ID prefix, task directories, sync preferences)
 argument-hint: ""
+disable-model-invocation: true
 ---
 
 # /pm:config

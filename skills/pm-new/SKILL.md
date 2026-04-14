@@ -1,6 +1,8 @@
 ---
+name: pm:new
 description: Create a new task file in tasks/backlog/ with auto-incrementing ID
 argument-hint: "<task title or description>"
+disable-model-invocation: true
 ---
 
 # /pm:new
