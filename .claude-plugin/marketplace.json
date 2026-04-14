@@ -12,7 +12,7 @@
       "name": "mdpm",
       "source": "./",
       "description": "Markdown Project Manager — lightweight markdown-native task tracking for Claude Code, with optional Jira/Wrike sync and a zero-dependency kanban board.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "productivity",
       "tags": ["project-management", "kanban", "markdown", "jira", "wrike", "tasks", "pm"],
       "author": {

@@ -282,6 +282,26 @@ class BoardHandler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 
+def _find_free_port(host: str, start: int, max_attempts: int = 20) -> int:
+    """Find the first free TCP port at or above `start` on `host`.
+
+    Raises OSError if no port is available in the attempted range.
+    """
+    import socket as _socket
+
+    for candidate in range(start, start + max_attempts):
+        with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as probe:
+            probe.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind((host, candidate))
+            except OSError:
+                continue
+            return candidate
+    raise OSError(
+        f"No free port found in range {start}..{start + max_attempts - 1} on {host}"
+    )
+
+
 def main(argv: list[str]) -> int:
     here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description="MDPM kanban board server")
@@ -291,6 +311,11 @@ def main(argv: list[str]) -> int:
         "--root",
         default=None,
         help="Project root containing tasks/ and docs/. Defaults to CWD, falling back to the parent of this script.",
+    )
+    parser.add_argument(
+        "--strict-port",
+        action="store_true",
+        help="Fail instead of auto-picking the next free port if --port is in use.",
     )
     args = parser.parse_args(argv)
 
@@ -308,9 +333,27 @@ def main(argv: list[str]) -> int:
     BoardHandler.project_root = project_root
     BoardHandler.board_html = here / "board.html"
 
-    print(f"[mdpm] serving board from {project_root} at http://{args.host}:{args.port}")
+    # Resolve the port: try the requested one, then walk forward if busy.
+    port = args.port
+    try:
+        server = ThreadingHTTPServer((args.host, port), BoardHandler)
+    except OSError as exc:
+        if args.strict_port:
+            print(f"[mdpm] port {port} is busy: {exc}", file=sys.stderr)
+            return 1
+        try:
+            port = _find_free_port(args.host, args.port + 1)
+        except OSError as find_exc:
+            print(f"[mdpm] port {args.port} is busy and {find_exc}", file=sys.stderr)
+            return 1
+        print(
+            f"[mdpm] port {args.port} was busy; using {port} instead "
+            f"(pass --strict-port to fail instead)"
+        )
+        server = ThreadingHTTPServer((args.host, port), BoardHandler)
+
+    print(f"[mdpm] serving board from {project_root} at http://{args.host}:{port}")
     print("[mdpm] ctrl+c to quit")
-    server = ThreadingHTTPServer((args.host, args.port), BoardHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -86,7 +86,16 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
 
 6. **Optionally install the board.** If the user opted in, copy `board.html` and `serve.py` to `board/` in the repo. Tell them to run `python3 board/serve.py` to view.
 
-7. **Confirm.** Print a summary of what was created, and suggest `/pm:new` to create the first task.
+7. **Update `.gitignore`.** `.mdpm/config.json` is intended to be committed (project-wide config), but `.mdpm/sync-state.json` is a local sync cache and should not be. Ensure the repo's `.gitignore` includes:
+   ```
+   # MDPM local sync cache
+   .mdpm/sync-state.json
+   ```
+   - If `.gitignore` exists and already contains a `.mdpm/sync-state.json` entry, leave it alone.
+   - If `.gitignore` exists but is missing the entry, append the two lines above.
+   - If `.gitignore` doesn't exist, create one with just those lines. (Don't dump a kitchen-sink gitignore into someone's project.)
+
+8. **Confirm.** Print a summary of what was created, and suggest `/pm:new` to create the first task.
 
 ## Notes
 
