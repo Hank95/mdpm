@@ -190,8 +190,14 @@ your-project/
 A zero-dependency local board ships with the plugin:
 
 ```bash
-python3 board/serve.py
+# Recommended: run from the plugin directly so you always get the latest UI
+python3 ${CLAUDE_PLUGIN_ROOT}/board/serve.py --root .
 # -> http://127.0.0.1:8765
+
+# (Alternative: if you copied board/ into your repo, run the local copy.
+# Those local files won't auto-update after /plugin update mdpm — recopy
+# board.html and serve.py from ${CLAUDE_PLUGIN_ROOT}/board/ to pick up
+# new features.)
 ```
 
 - Pure Python stdlib (`http.server`)

@@ -31,7 +31,11 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
       - For Wrike: ask for a default folder (can be filled later via `/pm:sync-wrike`).
       - Remind them they still need an MCP server configured for the sync to work automatically.
 
-   **e. Kanban board.** Do you want the local kanban board installed? If yes, we'll drop `board.html` and `serve.py` into a `board/` subdirectory at the repo root.
+   **e. Kanban board.** The board is available two ways:
+   - **Recommended:** run it from the plugin directly (`python3 ${CLAUDE_PLUGIN_ROOT}/board/serve.py --root .`). Always current after `/plugin update mdpm`.
+   - **Local copy:** drop `board.html` and `serve.py` into `board/` in the repo. Self-contained but goes stale after plugin updates — requires recopying.
+
+   Default to the plugin-path approach (don't copy anything). Only copy the files if the user explicitly asks for a self-contained local install.
 
 3. **Create the layout:**
    ```
@@ -83,7 +87,14 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
    Run `/pm:help` to list commands, `/pm:status` for a dashboard.
    ```
 
-6. **Optionally install the board.** If the user opted in, copy `board.html` and `serve.py` to `board/` in the repo. Tell them to run `python3 board/serve.py` to view.
+6. **Kanban board setup** (follows from step 2e).
+   - **Default (plugin-path):** don't copy anything into the repo. Tell the user:
+     ```
+     Run the board with:
+         python3 ${CLAUDE_PLUGIN_ROOT}/board/serve.py --root .
+     ```
+     Substitute the actual expanded plugin path when printing so it's runnable verbatim.
+   - **Only if the user asked for a local copy:** copy `board.html` and `serve.py` from the plugin to a `board/` directory in the repo, and remind them they'll need to refresh those files manually after `/plugin update mdpm` or they'll miss UI improvements.
 
 7. **Update `.gitignore`.** `.mdpm/config.json` is intended to be committed (project-wide config), but `.mdpm/sync-state.json` is a local sync cache and should not be. Ensure the repo's `.gitignore` includes:
    ```
