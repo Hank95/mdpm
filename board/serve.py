@@ -239,6 +239,36 @@ class BoardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _read_body(self) -> bytes:
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0:
+            return b""
+        return self.rfile.read(length)
+
+    def _resolve_task_path(self, raw: str) -> Path | None:
+        """Resolve a path like /api/task/backlog/PRJ-001-title.md to an absolute file.
+
+        Returns None if the path escapes tasks/ or targets a non-.md file or
+        a status directory outside STATUS_DIRS.
+        """
+        # Strip /api/task/ prefix
+        rel = raw[len("/api/task/"):]
+        rel = rel.strip("/")
+        parts = rel.split("/")
+        if len(parts) != 2:
+            return None
+        status, filename = parts
+        if status not in STATUS_DIRS and status != "archive":
+            return None
+        if not filename.endswith(".md") or "/" in filename or ".." in filename:
+            return None
+        candidate = (self.project_root / "tasks" / status / filename).resolve()
+        try:
+            candidate.relative_to((self.project_root / "tasks").resolve())
+        except ValueError:
+            return None
+        return candidate
+
     def do_GET(self):  # noqa: N802
         url = urlparse(self.path)
         path = url.path
@@ -272,6 +302,76 @@ class BoardHandler(BaseHTTPRequestHandler):
                 self._send(200, roadmap.read_bytes(), "text/plain; charset=utf-8")
             else:
                 self._send(404, b"ROADMAP.md not found", "text/plain")
+            return
+
+        if path.startswith("/api/task/"):
+            file_path = self._resolve_task_path(path)
+            if file_path is None or not file_path.exists():
+                self._send(404, b"task not found", "text/plain")
+                return
+            content = file_path.read_text(encoding="utf-8")
+            mtime = file_path.stat().st_mtime
+            payload = json.dumps(
+                {"path": str(file_path.relative_to(self.project_root)), "content": content, "mtime": mtime}
+            ).encode("utf-8")
+            self._send(200, payload, "application/json")
+            return
+
+        self._send(404, b"not found", "text/plain")
+
+    def do_POST(self):  # noqa: N802
+        url = urlparse(self.path)
+        path = url.path
+
+        if path.startswith("/api/task/"):
+            file_path = self._resolve_task_path(path)
+            if file_path is None or not file_path.exists():
+                self._send(404, b"task not found", "text/plain")
+                return
+            try:
+                payload = json.loads(self._read_body().decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                self._send(400, f"invalid json: {exc}".encode("utf-8"), "text/plain")
+                return
+            new_content = payload.get("content")
+            expected_mtime = payload.get("mtime")
+            if not isinstance(new_content, str):
+                self._send(400, b"content must be a string", "text/plain")
+                return
+
+            # Conflict detection: reject if the file changed on disk since the client loaded it.
+            current_mtime = file_path.stat().st_mtime
+            if expected_mtime is not None and abs(current_mtime - float(expected_mtime)) > 1e-6:
+                body = json.dumps({
+                    "error": "conflict",
+                    "message": "file changed on disk since you opened it",
+                    "current_content": file_path.read_text(encoding="utf-8"),
+                    "current_mtime": current_mtime,
+                }).encode("utf-8")
+                self._send(409, body, "application/json")
+                return
+
+            # Lightweight validation: frontmatter must still parse.
+            if not new_content.startswith("---\n"):
+                self._send(400, b"missing YAML frontmatter (must start with '---\\n')", "text/plain")
+                return
+            fm, _body = parse_frontmatter(new_content)
+            if not fm:
+                self._send(400, b"frontmatter failed to parse", "text/plain")
+                return
+
+            # Atomic write: write to temp, fsync, rename.
+            tmp = file_path.with_suffix(file_path.suffix + ".tmp")
+            try:
+                tmp.write_text(new_content, encoding="utf-8")
+                os.replace(tmp, file_path)
+            except OSError as exc:
+                self._send(500, f"write failed: {exc}".encode("utf-8"), "text/plain")
+                return
+
+            new_mtime = file_path.stat().st_mtime
+            body = json.dumps({"ok": True, "mtime": new_mtime}).encode("utf-8")
+            self._send(200, body, "application/json")
             return
 
         self._send(404, b"not found", "text/plain")

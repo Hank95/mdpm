@@ -63,6 +63,15 @@
     border-radius: 4px;
   }
   header button:hover { border-color: var(--accent); color: var(--accent); }
+  header a.issue-link {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    border-radius: 4px;
+  }
+  header a.issue-link:hover { color: var(--accent); border-color: var(--accent); }
   header input[type="text"],
   header select {
     background: var(--bg);
@@ -247,6 +256,51 @@
   .modal ul { margin: 0; padding-left: 18px; }
   .modal li { margin: 2px 0; }
 
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .modal-actions button {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .modal-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .modal-actions button.primary { border-color: var(--accent); color: var(--accent); }
+  .modal-actions button.primary:hover { background: var(--accent); color: var(--bg); }
+  .modal-actions button.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  .editor-textarea {
+    width: 100%;
+    min-height: 420px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 10px;
+    border-radius: 4px;
+    resize: vertical;
+  }
+  .editor-textarea:focus { outline: none; border-color: var(--accent); }
+  .editor-status {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .editor-status.error { color: var(--danger); }
+  .editor-status.success { color: var(--ok); }
+
   .footer {
     padding: 12px 20px;
     color: var(--text-dim);
@@ -282,6 +336,7 @@
       <option value="">all assignees</option>
     </select>
     <button id="refresh">refresh</button>
+    <a class="issue-link" href="https://github.com/Hank95/mdpm/issues" target="_blank" rel="noopener" title="Report an MDPM issue or request a feature">report bug</a>
   </div>
 </header>
 
@@ -432,8 +487,17 @@ function renderCard(t) {
   return card;
 }
 
+let CURRENT_TASK = null;  // task object whose modal is open
+let CURRENT_MTIME = null; // mtime returned by GET /api/task (for conflict detection)
+
 function openModal(t) {
-  const overlay = document.getElementById("overlay");
+  CURRENT_TASK = t;
+  CURRENT_MTIME = null;
+  renderModalView(t);
+  document.getElementById("overlay").classList.add("open");
+}
+
+function renderModalView(t) {
   const modal = document.getElementById("modal");
   const deps = (t.depends_on || []).length
     ? `<div class="section"><h3>Depends on</h3><ul>${t.depends_on.map(d => `<li>${escapeHtml(d)}</li>`).join("")}</ul></div>`
@@ -458,12 +522,123 @@ function openModal(t) {
     ${notes}
     ${log}
     <div class="section"><h3>File</h3><pre>${escapeHtml(t.path)}</pre></div>
+    <div class="modal-actions">
+      <button onclick="openEditor()" class="primary">edit</button>
+      <button onclick="closeModal()">close</button>
+    </div>
   `;
-  overlay.classList.add("open");
+}
+
+async function openEditor() {
+  const t = CURRENT_TASK;
+  if (!t) return;
+  const modal = document.getElementById("modal");
+  modal.innerHTML = `<div class="editor-status">loading…</div>`;
+  try {
+    const apiPath = `/api/task/${encodeURIComponent(t.status_dir)}/${encodeURIComponent(t.filename)}`;
+    const res = await fetch(apiPath, { cache: "no-store" });
+    if (!res.ok) throw new Error(`GET ${apiPath} → ${res.status}`);
+    const data = await res.json();
+    CURRENT_MTIME = data.mtime;
+    renderModalEditor(t, data.content);
+  } catch (err) {
+    modal.innerHTML = `
+      <div class="editor-status error">Failed to load: ${escapeHtml(err.message)}</div>
+      <div class="modal-actions">
+        <button onclick="renderModalView(CURRENT_TASK)">back</button>
+      </div>
+    `;
+  }
+}
+
+function renderModalEditor(t, content) {
+  const modal = document.getElementById("modal");
+  modal.innerHTML = `
+    <div class="meta" style="color: var(--text-dim); font-size: 11px;">editing ${escapeHtml(t.path)}</div>
+    <h2>${escapeHtml(t.title)}</h2>
+    <div class="editor-status">Edit the raw markdown. Keep the YAML frontmatter (between the <code>---</code> lines) or save will fail. Cmd/Ctrl+S saves.</div>
+    <textarea id="task-editor" class="editor-textarea" spellcheck="false"></textarea>
+    <div id="editor-feedback" class="editor-status"></div>
+    <div class="modal-actions">
+      <button onclick="renderModalView(CURRENT_TASK)">cancel</button>
+      <button onclick="saveEditor()" class="primary" id="editor-save">save</button>
+    </div>
+  `;
+  const ta = document.getElementById("task-editor");
+  ta.value = content;
+  ta.focus();
+  // cmd/ctrl+s shortcut
+  ta.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+      e.preventDefault();
+      saveEditor();
+    }
+  });
+}
+
+async function saveEditor() {
+  const t = CURRENT_TASK;
+  if (!t) return;
+  const ta = document.getElementById("task-editor");
+  const feedback = document.getElementById("editor-feedback");
+  const saveBtn = document.getElementById("editor-save");
+  saveBtn.disabled = true;
+  feedback.className = "editor-status";
+  feedback.textContent = "saving…";
+
+  try {
+    const apiPath = `/api/task/${encodeURIComponent(t.status_dir)}/${encodeURIComponent(t.filename)}`;
+    const res = await fetch(apiPath, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: ta.value, mtime: CURRENT_MTIME }),
+    });
+
+    if (res.status === 409) {
+      const data = await res.json();
+      if (confirm("This file changed on disk since you opened it. Overwrite with your changes? (Cancel to reload disk contents and try again.)")) {
+        // Re-fetch to get the new mtime, then retry.
+        const fresh = await fetch(apiPath, { cache: "no-store" });
+        const freshData = await fresh.json();
+        CURRENT_MTIME = freshData.mtime;
+        await saveEditor();
+      } else {
+        CURRENT_MTIME = data.current_mtime;
+        ta.value = data.current_content;
+        feedback.className = "editor-status error";
+        feedback.textContent = "Loaded disk contents. Re-apply your edits and save.";
+        saveBtn.disabled = false;
+      }
+      return;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`${res.status}: ${text}`);
+    }
+
+    const data = await res.json();
+    CURRENT_MTIME = data.mtime;
+    feedback.className = "editor-status success";
+    feedback.textContent = "saved ✓";
+    // Refresh board data after a short moment, then go back to view mode.
+    await load();
+    // CURRENT_TASK may now be stale after reload; rebuild from latest task data.
+    const updated = ALL_TASKS.find((x) => x.path === t.path) || CURRENT_TASK;
+    CURRENT_TASK = updated;
+    setTimeout(() => renderModalView(updated), 400);
+  } catch (err) {
+    feedback.className = "editor-status error";
+    feedback.textContent = `save failed: ${err.message}`;
+  } finally {
+    saveBtn.disabled = false;
+  }
 }
 
 function closeModal() {
   document.getElementById("overlay").classList.remove("open");
+  CURRENT_TASK = null;
+  CURRENT_MTIME = null;
 }
 
 document.addEventListener("keydown", e => {

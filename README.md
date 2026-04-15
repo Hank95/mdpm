@@ -172,7 +172,9 @@ python3 board/serve.py
 - Four columns: Inbox, Backlog, Active, Done
 - Cards show priority, tags, due dates (with overdue warnings), acceptance progress
 - Click a card for the full objective, notes, and latest work log
-- Read-only view — edit the `.md` files to change state
+- **Inline editing**: the detail modal has an **Edit** button that opens the full raw markdown in a textarea. Save writes back to the file with conflict detection (mtime-based) — if the file changed on disk while you were editing, you'll be prompted to reload or overwrite. Cmd/Ctrl+S saves.
+- Auto-walks the port forward if the default (8765) is busy (use `--strict-port` to disable)
+- "Report bug" link in the header points to this repo's issue tracker
 
 No build step, no npm, no watcher. Just run `serve.py`.
 
