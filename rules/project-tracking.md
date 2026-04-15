@@ -32,6 +32,7 @@ The CLI enforces every invariant automatically: atomic writes, work-log appends,
 | `mdpm search <query> [--status S] [--tag T] [--assignee N]` | Find tasks by id/title/tags/body |
 | `mdpm next` | Recommend the next task (skips blocked, skips those with unmet deps) |
 | `mdpm status` | Dashboard: active, blocked, waiting, overdue |
+| `mdpm board [--port N] [--no-open]` | Launch the kanban board (opens browser by default) |
 
 `<ref>` accepts an exact ID (`PRJ-042`), a case-insensitive title substring (`"user login"`), or a filename fragment. Ambiguous refs exit 2 with a candidate list on stderr.
 

@@ -190,15 +190,17 @@ your-project/
 A zero-dependency local board ships with the plugin:
 
 ```bash
-# Recommended: run from the plugin directly so you always get the latest UI
-python3 ${CLAUDE_PLUGIN_ROOT}/board/serve.py --root .
-# -> http://127.0.0.1:8765
+python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm board
+# -> opens http://127.0.0.1:8765 in your default browser
 
-# (Alternative: if you copied board/ into your repo, run the local copy.
-# Those local files won't auto-update after /plugin update mdpm — recopy
-# board.html and serve.py from ${CLAUDE_PLUGIN_ROOT}/board/ to pick up
-# new features.)
+# Useful flags:
+#   --port N         different port (default 8765, auto-walks forward if busy)
+#   --no-open        don't open a browser (good for SSH/Tailscale sessions)
+#   --host 0.0.0.0   bind beyond loopback (only on trusted networks — the
+#                    board has write endpoints)
 ```
+
+The `board` subcommand locates `serve.py` inside the installed plugin and points it at whatever project you're in, so you always get the current UI after `/plugin update mdpm`.
 
 - Pure Python stdlib (`http.server`)
 - Single-file HTML, dark terminal aesthetic

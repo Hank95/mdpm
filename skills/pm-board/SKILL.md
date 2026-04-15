@@ -10,37 +10,39 @@ Tell the user how to start the zero-dependency kanban board.
 
 `$ARGUMENTS` — optional port number (default 8765).
 
-## Steps
+## What to say
 
-1. **Recommend running from the plugin directly.** This always picks up the latest board UI when MDPM is updated; a copy installed into the user's repo via `/pm:config` can go stale after `/plugin update`.
+The CLI ships a `board` subcommand that locates `serve.py` relative to the installed plugin (so there are no hardcoded paths), points it at the current project, and opens the browser automatically:
 
-   Print this (substitute the actual plugin path and port — don't leave `${CLAUDE_PLUGIN_ROOT}` as a literal since the user needs a runnable command):
+```
+Run this in a separate terminal, from your project root:
 
-   ```
-   Run this in a separate terminal, from your project root:
+    python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm board [--port <PORT>]
 
-       python3 ${CLAUDE_PLUGIN_ROOT}/board/serve.py --root . --port <PORT>
+Ctrl+C to stop. It'll open http://127.0.0.1:<port> in your default browser.
+```
 
-   Then open http://127.0.0.1:<PORT> in your browser.
-   ```
+Substitute the actual expanded plugin path when printing to the user — they need a verbatim command, not a shell variable.
 
-2. **Mention the fallback** — if the user previously copied `board/serve.py` into their repo via `/pm:config`, they can still run `python3 board/serve.py` from the project root, but they should occasionally refresh the copy after plugin updates:
-   ```
-   cp ${CLAUDE_PLUGIN_ROOT}/board/board.html ./board/board.html
-   cp ${CLAUDE_PLUGIN_ROOT}/board/serve.py    ./board/serve.py
-   ```
+If the user has set up a shell alias (e.g. `alias mdpm="python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm"`), they can just run `mdpm board`.
 
-3. **Tell them what to expect:**
-   - Four columns: Inbox, Backlog, Active, Done.
-   - Auto-refreshes every 10 seconds.
-   - Search box filters by title, tag, ID, or assignee; priority and assignee dropdowns narrow further.
-   - Click any card for the full detail modal; hit **Edit** to modify the raw markdown in-browser with conflict detection on save (Cmd/Ctrl+S).
-   - `report bug` link in the header goes to the MDPM issue tracker.
-   - Port is auto-walked forward if the default is busy; pass `--strict-port` if you need a deterministic port for scripting.
+## Flags to mention if asked
 
-4. **Do not run the server yourself.** It's a long-running process; starting it as a background Bash command inside this session would strand it. Give the user a copy/pasteable command instead.
+- `--port N` — override the default 8765
+- `--no-open` — start the server without opening a browser (useful when running over SSH / Tailscale)
+- `--strict-port` — fail instead of auto-walking forward when the port is busy
+- `--host 0.0.0.0` — bind beyond loopback (useful for Tailscale or LAN access). **Warn the user** that the board exposes read/write endpoints to anyone who can reach the host:port — only do this on a trusted network.
+
+## What to expect
+
+- Four columns: Inbox, Backlog, Active, Done.
+- Auto-refreshes every 10 seconds; no restart needed after `.md` edits.
+- Search box + priority/assignee dropdowns.
+- Click any card for the detail modal; **Edit** opens the raw markdown in-browser with Cmd/Ctrl+S to save and mtime-based conflict detection.
+- `report bug` link in the header goes to the MDPM issue tracker.
+- Port auto-walks forward if the default is busy (disable with `--strict-port`).
 
 ## Notes
 
-- If the user previously ran `/pm:config` with the board option, their repo has a `board/` directory. Running from that local copy still works, but it won't pick up UI improvements shipped in later plugin versions unless they recopy. The plugin-path invocation avoids this entirely.
-- Preferred default: plugin-path invocation. Only suggest the local-copy path if the user asks or already has it set up.
+- **Do not start the server yourself.** It's long-running — backgrounding it inside this session would strand the process. Give the user a copy/pasteable command to run in their own terminal.
+- If the user previously opted into a local copy via an older `/pm:config` and has `./board/` in their repo, the plugin-path invocation still supersedes it. They can delete `./board/` if they want to eliminate the stale copy.

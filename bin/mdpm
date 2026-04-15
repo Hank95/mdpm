@@ -719,6 +719,57 @@ def cmd_next(args) -> int:
     return 0
 
 
+def cmd_board(args) -> int:
+    """Launch the kanban board server, pointed at the current project.
+
+    Finds board/serve.py relative to this script so it always runs the
+    version that ships with the installed plugin — no hardcoded paths,
+    no stale local-copy problem.
+    """
+    serve_py = HERE.parent / "board" / "serve.py"
+    if not serve_py.exists():
+        raise core.NotFoundError(f"board/serve.py not found at {serve_py}")
+
+    # Resolve the project root. Honor --root if given (matches every other
+    # subcommand); otherwise walk up from CWD. Fall back to CWD if no tasks/
+    # directory is found so the server still starts and shows an empty board.
+    if getattr(args, "root", None):
+        project_root = Path(args.root).resolve()
+    else:
+        try:
+            project_root = core.find_project_root()
+        except core.NotFoundError:
+            project_root = Path.cwd()
+
+    serve_args = [
+        sys.executable,
+        str(serve_py),
+        "--root", str(project_root),
+        "--port", str(args.port),
+        "--host", args.host,
+    ]
+    if args.strict_port:
+        serve_args.append("--strict-port")
+    if args.open_browser:
+        serve_args.append("--open")
+
+    if JSON_MODE:
+        # Report what would happen and exit without execing — the server is
+        # interactive and long-running, so JSON callers probably don't want to
+        # block forever.
+        print(json.dumps({
+            "ok": True,
+            "action": "board",
+            "command": serve_args,
+            "project_root": str(project_root),
+        }, indent=2))
+        return 0
+
+    # Hand off to the server. os.execvp replaces this process so ctrl+c goes
+    # directly to serve.py and nothing else is left running.
+    os.execvp(sys.executable, serve_args)
+
+
 def cmd_status(args) -> int:
     root = _resolve_root(args)
     tasks = core.load_all_tasks(root)
@@ -880,6 +931,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser("status", help="print the project dashboard")
     p_status.set_defaults(func=cmd_status)
+
+    p_board = sub.add_parser(
+        "board",
+        help="launch the kanban board server pointed at the current project",
+    )
+    p_board.add_argument("--port", type=int, default=8765)
+    p_board.add_argument("--host", default="127.0.0.1")
+    p_board.add_argument(
+        "--strict-port",
+        action="store_true",
+        help="fail instead of auto-picking the next free port if --port is in use",
+    )
+    p_board.add_argument(
+        "--no-open",
+        dest="open_browser",
+        action="store_false",
+        default=True,
+        help="don't auto-open the board URL in the browser",
+    )
+    p_board.set_defaults(func=cmd_board)
 
     return parser
 

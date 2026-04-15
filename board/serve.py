@@ -223,6 +223,12 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="Fail instead of auto-picking the next free port if --port is in use.",
     )
+    parser.add_argument(
+        "--open",
+        dest="open_browser",
+        action="store_true",
+        help="Open the board URL in the default browser after the server starts.",
+    )
     args = parser.parse_args(argv)
 
     if args.root:
@@ -257,8 +263,24 @@ def main(argv: list[str]) -> int:
         )
         server = ThreadingHTTPServer((args.host, port), BoardHandler)
 
-    print(f"[mdpm] serving board from {project_root} at http://{args.host}:{port}")
+    url = f"http://{args.host}:{port}"
+    print(f"[mdpm] serving board from {project_root} at {url}")
     print("[mdpm] ctrl+c to quit")
+
+    if args.open_browser:
+        import threading
+        import webbrowser
+
+        def _open():
+            # Small delay so the server is ready to handle the initial GET.
+            time.sleep(0.4)
+            try:
+                webbrowser.open(url)
+            except Exception as exc:  # pragma: no cover — platform-specific
+                print(f"[mdpm] could not open browser: {exc}", file=sys.stderr)
+
+        threading.Thread(target=_open, daemon=True).start()
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:

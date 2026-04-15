@@ -35,7 +35,7 @@ Planning & triage
 
 Maintenance
   /pm:archive [--older-than N]   Move aged done tasks to tasks/archive/
-  /pm:board [port]         Print the command to launch the kanban board
+  /pm:board                Launch the local kanban board (opens browser)
 
 Optional sync (needs MCP)
   /pm:sync-jira [push|pull|both]
