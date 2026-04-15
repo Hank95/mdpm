@@ -62,11 +62,20 @@ def emit_error(error: str, message: str, exit_code: int = 1, **extra) -> None:
 
 
 def _task_summary(task: dict) -> dict:
+    # Effective status: a task is "blocked" iff frontmatter.status == "blocked"
+    # (it stays in its current directory — usually active/). Otherwise the
+    # directory is authoritative. Expose both raw values for consumers who
+    # need them.
+    status_dir = task.get("status_dir")
+    status_field = task.get("status_field")
+    effective = "blocked" if status_field == "blocked" else status_dir
     return {
         "id": task.get("id"),
         "title": task.get("title"),
         "priority": task.get("priority"),
-        "status": task.get("status_dir"),
+        "status": effective,
+        "status_dir": status_dir,
+        "status_field": status_field,
         "due": task.get("due"),
         "tags": task.get("tags") or [],
         "assigned_to": task.get("assigned_to"),
@@ -235,6 +244,14 @@ def cmd_new(args) -> int:
     if not title:
         raise core.ValidationError("title is required")
 
+    depends = _parse_depends(args.depends) or []
+    if depends:
+        cycle = core.find_dependency_cycle(root, task_id, depends)
+        if cycle:
+            raise core.ValidationError(
+                f"circular dependency: {' → '.join(cycle)}"
+            )
+
     fm = {
         "id": task_id,
         "title": title,
@@ -244,7 +261,7 @@ def cmd_new(args) -> int:
         "updated": today,
         "due": _parse_date(args.due),
         "tags": _parse_tags(args.tags) or [],
-        "depends_on": _parse_depends(args.depends) or [],
+        "depends_on": depends,
         "assigned_to": args.assigned_to or cfg.get("default_assignee"),
         "wrike_id": None,
         "jira_id": None,
@@ -257,7 +274,7 @@ def cmd_new(args) -> int:
         f"\n"
         f"## Objective\n{objective}\n"
         f"\n"
-        f"## Acceptance Criteria\n- [ ] \n"
+        f"## Acceptance Criteria\n"
         f"\n"
         f"## Notes\n\n"
         f"## Work Log\n- {today}: Task created.\n"
@@ -470,8 +487,30 @@ def cmd_edit(args) -> int:
         fm["tags"] = _parse_tags(args.tags)
         diffs["tags"] = fm["tags"]
 
+    if args.add_tags:
+        current = list(fm.get("tags") or [])
+        to_add = [x.strip() for x in args.add_tags.split(",") if x.strip()]
+        added = [x for x in to_add if x not in current]
+        if added:
+            fm["tags"] = current + added
+            diffs.setdefault("tags", fm["tags"])
+
+    if args.remove_tags:
+        current = list(fm.get("tags") or [])
+        to_remove = {x.strip() for x in args.remove_tags.split(",") if x.strip()}
+        new_tags = [x for x in current if x not in to_remove]
+        if new_tags != current:
+            fm["tags"] = new_tags
+            diffs.setdefault("tags", fm["tags"])
+
     if args.depends is not None:
-        fm["depends_on"] = _parse_depends(args.depends)
+        new_deps = _parse_depends(args.depends)
+        cycle = core.find_dependency_cycle(root, t["id"], new_deps or [])
+        if cycle:
+            raise core.ValidationError(
+                f"circular dependency: {' → '.join(cycle)}"
+            )
+        fm["depends_on"] = new_deps
         diffs["depends_on"] = fm["depends_on"]
 
     if args.assigned_to is not None:
@@ -773,16 +812,25 @@ def cmd_board(args) -> int:
 def cmd_status(args) -> int:
     root = _resolve_root(args)
     tasks = core.load_all_tasks(root)
-    by_status = {s: [t for t in tasks if t["status_dir"] == s] for s in core.STATUS_DIRS}
+    # Identify blockers first so we can exclude them from the status-dir arrays
+    blocked_ids = {
+        t["id"] for t in tasks if t["frontmatter"].get("status") == "blocked"
+    }
+    by_status = {
+        s: [
+            t for t in tasks
+            if t["status_dir"] == s and t["id"] not in blocked_ids
+        ]
+        for s in core.STATUS_DIRS
+    }
 
-    # Identify blockers vs waiting
     done_ids = {t["id"] for t in core.load_all_tasks(root, include_archive=True)
                 if t["status_dir"] in ("done", "archive") and t["id"]}
-    blocked = [t for t in tasks if t["frontmatter"].get("status") == "blocked"]
+    blocked = [t for t in tasks if t["id"] in blocked_ids]
     waiting = [
         t for t in tasks
         if t["status_dir"] in ("backlog", "active")
-        and not t["frontmatter"].get("status") == "blocked"
+        and t["id"] not in blocked_ids
         and any(d not in done_ids for d in (t["depends_on"] or []))
     ]
     today = date.today().isoformat()
@@ -900,7 +948,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_edit.add_argument("--title")
     p_edit.add_argument("--priority")
     p_edit.add_argument("--due", help="YYYY-MM-DD or 'null' to clear")
-    p_edit.add_argument("--tags", help="comma-separated (empty or 'null' to clear)")
+    p_edit.add_argument("--tags", help="replace all tags with this comma-separated list (empty or 'null' to clear)")
+    p_edit.add_argument("--add-tags", dest="add_tags", help="add these tags without touching existing ones (comma-separated)")
+    p_edit.add_argument("--remove-tags", dest="remove_tags", help="remove these tags (comma-separated)")
     p_edit.add_argument("--depends", help="comma-separated IDs")
     p_edit.add_argument("--assigned-to", dest="assigned_to")
     p_edit.add_argument("--jira-id", dest="jira_id")

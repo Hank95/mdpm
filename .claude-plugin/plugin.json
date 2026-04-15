@@ -1,6 +1,6 @@
 {
   "name": "mdpm",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Markdown Project Manager — a lightweight, markdown-native project tracking system for Claude Code. Tasks live as .md files with YAML frontmatter; status is a directory. Optional Jira/Wrike sync via MCP.",
   "author": {
     "name": "Henry",

@@ -540,6 +540,43 @@ def newly_unblocked(root: Path, just_completed_id: str) -> list[dict]:
     return result
 
 
+def find_dependency_cycle(
+    root: Path, task_id: str, new_deps: list[str]
+) -> list[str] | None:
+    """Check whether assigning `new_deps` to `task_id` would create a cycle.
+
+    Returns a cycle path (list of IDs starting and ending at `task_id`) if a
+    cycle is found, else None. Works by walking transitive dependencies of
+    each proposed dep and checking if any path reaches back to `task_id`.
+    """
+    all_tasks = load_all_tasks(root, include_archive=True)
+    deps_by_id: dict[str, list[str]] = {
+        t["id"]: list(t.get("depends_on") or []) for t in all_tasks if t["id"]
+    }
+    # Apply the proposed change to our local graph view
+    deps_by_id[task_id] = list(new_deps)
+
+    # DFS from each new dep; if we hit task_id, we found a cycle.
+    for start in new_deps:
+        if start == task_id:
+            return [task_id, task_id]
+        stack: list[tuple[str, list[str]]] = [(start, [task_id, start])]
+        visited = {task_id}
+        while stack:
+            cur, path = stack.pop()
+            if cur == task_id:
+                return path
+            if cur in visited:
+                continue
+            visited.add(cur)
+            for dep in deps_by_id.get(cur, []):
+                if dep == task_id:
+                    return path + [dep]
+                if dep not in visited:
+                    stack.append((dep, path + [dep]))
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Public for diagnostics
 # ---------------------------------------------------------------------------
@@ -575,4 +612,5 @@ __all__ = [
     "rename_for_title",
     "dependents_of",
     "newly_unblocked",
+    "find_dependency_cycle",
 ]

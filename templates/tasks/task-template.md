@@ -20,8 +20,8 @@ jira_project: null
 What needs to be done and why (1-3 sentences).
 
 ## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
+<!-- - [ ] one concrete, testable criterion per line -->
+
 
 ## Notes
 Context, links, people to coordinate with.
