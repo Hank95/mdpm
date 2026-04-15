@@ -13,7 +13,7 @@ Edit frontmatter fields on an existing task. `$ARGUMENTS` is the ID or title fra
 Delegate to the CLI — it validates values, preserves field order in the frontmatter, bumps `updated`, appends a work log entry summarizing the change, and renames the file if the title changed:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" edit <ref> \
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json edit <ref> \
   [--title "New Title"] \
   [--priority high|medium|low] \
   [--due YYYY-MM-DD | --due null] \
@@ -22,8 +22,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" edit <ref> \
   [--assigned-to "Name" | --assigned-to null] \
   [--jira-id ENG-451 | --jira-id null] \
   [--wrike-id 12345 | --wrike-id null] \
-  [--note "extra work log entry"] \
-  --json
+  [--note "extra work log entry"]
 ```
 
 ## Parsing the user's prompt
@@ -33,7 +32,7 @@ Accept natural phrasing and map to CLI flags. Examples:
 - "bump PRJ-042 to high priority" → `--priority high`
 - "change PRJ-042 due to next Friday" → resolve to ISO date → `--due 2026-04-25`
 - "tag PRJ-042 with auth and security" → `--tags auth,security`
-  - If the user says "also tag", read current tags via `mdpm show <ref> --json`, append the new ones, pass the full list.
+  - If the user says "also tag", read current tags via `mdpm --json show <ref>`, append the new ones, pass the full list.
 - "assign PRJ-042 to Danny" → `--assigned-to Danny`
 - "clear the due date" / "remove the assignee" → pass `null` to the relevant flag
 - "rename PRJ-042 to 'Add MFA to login'" → `--title "Add MFA to login"` (the CLI renames the file automatically)

@@ -11,7 +11,7 @@ Find tasks matching a query. `$ARGUMENTS` is the search expression.
 ## How to run
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" search "<query>" [--status S] [--tag T] [--assignee N] --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json search "<query>" [--status S] [--tag T] [--assignee N]
 ```
 
 ## Parsing the user's prompt

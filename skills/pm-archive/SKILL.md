@@ -11,7 +11,7 @@ Move tasks from `tasks/done/` into `tasks/archive/` to reduce clutter while keep
 ## How to run
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" archive [--older-than N] [--tag T] [--all] --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json archive [--older-than N] [--tag T] [--all]
 ```
 
 Default: `--older-than 30` (tasks completed more than 30 days ago).
@@ -20,7 +20,7 @@ Default: `--older-than 30` (tasks completed more than 30 days ago).
 
 **Always preview before running.** Archival is a bulk operation — show the user what's about to move:
 
-1. Run `mdpm list --status done --json` and filter by the same criteria (`--older-than` → compare `updated` against today minus N days).
+1. Run `mdpm --json list --status done` and filter by the same criteria (`--older-than` → compare `updated` against today minus N days).
 2. Show a compact list:
    ```
    Archiving N tasks (completed > 30 days ago):

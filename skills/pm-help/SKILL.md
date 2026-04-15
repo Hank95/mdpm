@@ -48,7 +48,7 @@ Task state lives in markdown files under tasks/{inbox,backlog,active,done,archiv
 Filenames follow <ID>-<slug>.md so they sort naturally (e.g. PRJ-001-gallery.md).
 
 For scripting or inline automation, the same operations are available as a CLI:
-  python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm <command> --json
+  python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm --json <command>
 Run `mdpm --help` for the full command list.
 ```
 

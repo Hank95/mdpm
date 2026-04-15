@@ -13,7 +13,7 @@ Read the project's task state and produce a concise dashboard.
 Delegate to the CLI. Use `--json` so you can rearrange and format the output to fit the user's audience:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" status --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json status
 ```
 
 ## What to produce
@@ -57,7 +57,7 @@ Combine with `docs/ROADMAP.md` (read it via Read tool) to identify the current m
 - [PRJ-120] Title — YYYY-MM-DD
 ```
 
-For "Recently Shipped" and "Up Next", run `mdpm list --status done --json` and `mdpm list --status backlog --json` respectively and filter/sort in your response.
+For "Recently Shipped" and "Up Next", run `mdpm --json list --status done` and `mdpm --json list --status backlog` respectively and filter/sort in your response.
 
 ## Output discipline
 

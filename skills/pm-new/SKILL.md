@@ -13,14 +13,13 @@ Create a new task. `$ARGUMENTS` is the task title or a brief description.
 Delegate to the CLI — it auto-derives the ID from the project's prefix (via `.mdpm/config.json` or by scanning existing IDs), builds the filename as `<ID>-<slug>.md`, and writes the task atomically with a canonical template:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" new "<title>" \
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json new "<title>" \
   --priority medium \
   [--due YYYY-MM-DD] \
   [--tags a,b,c] \
   [--depends PRJ-001,PRJ-002] \
   [--assigned-to "Henry"] \
-  [--objective "1-3 sentence objective"] \
-  --json
+  [--objective "1-3 sentence objective"]
 ```
 
 ## Parsing the user's prompt

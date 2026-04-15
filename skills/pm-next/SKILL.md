@@ -11,7 +11,7 @@ Pick the single best task to start next and explain why.
 ## How to run
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" next --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json next
 ```
 
 The CLI already filters out blocked tasks and tasks with unmet dependencies, and ranks by: overdue first → priority → due date → created.
@@ -21,7 +21,7 @@ The CLI already filters out blocked tasks and tasks with unmet dependencies, and
 The response contains `recommendation` (the top pick) and `candidates` (top 5 for context).
 
 1. Read `docs/ROADMAP.md` to understand the current milestone.
-2. Read the recommended task's body via `mdpm show <id> --json` for its acceptance criteria and notes.
+2. Read the recommended task's body via `mdpm --json show <id>` for its acceptance criteria and notes.
 3. Check `tasks/active/` via `mdpm list --status active` — if there's already work in flight, mention it. The user may want to finish what's active rather than start something new.
 
 Format:

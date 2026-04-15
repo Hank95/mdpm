@@ -15,12 +15,12 @@ Mark a task blocked when progress is stopped by something external — a review,
 Delegate to the CLI — it sets `status: blocked`, bumps `updated`, and appends the reason to the Work Log atomically:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" block <ref> <reason...> --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json block <ref> <reason...>
 ```
 
 Example:
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" block PRJ-042 waiting on security review from Alice --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json block PRJ-042 waiting on security review from Alice
 ```
 
 ## Parsing the user's prompt

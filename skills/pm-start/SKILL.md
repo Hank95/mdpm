@@ -13,7 +13,7 @@ Move a task into `tasks/active/` and officially begin work on it. Argument `$ARG
 **Delegate to the MDPM CLI** — never manipulate task files manually. It handles file moves, work log appends, dep checks, and filename preservation atomically:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" start $ARGUMENTS --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json start $ARGUMENTS
 ```
 
 ## Interpreting the result

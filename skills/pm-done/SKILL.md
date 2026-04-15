@@ -13,14 +13,14 @@ Mark a task complete. Argument `$ARGUMENTS` identifies the task.
 Delegate to the CLI — it handles the file move, appends the completion log entry, updates `docs/CHANGELOG.md`, and computes which dependents are now unblocked, all atomically:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" done $ARGUMENTS --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json done $ARGUMENTS
 ```
 
 If the user supplied a completion summary in their prompt (e.g. "close PRJ-042 — shipped with MFA"), pass it via `-m "Shipped with MFA"`.
 
 ## Pre-flight: check acceptance criteria
 
-Before calling `mdpm done`, run `mdpm show $ref --json` and look at `acceptance.done` vs `acceptance.total`. If there are unchecked items:
+Before calling `mdpm done`, run `mdpm --json show $ref` and look at `acceptance.done` vs `acceptance.total`. If there are unchecked items:
 
 1. List them for the user.
 2. Ask: mark them complete now, remove the ones that are no longer relevant, or proceed anyway acknowledging they weren't met?

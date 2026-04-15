@@ -9,7 +9,7 @@ Read this file in full before doing project management work in this repo.
 **The single most important rule:** when you need to change task state or metadata mid-session, call the MDPM CLI — never use `sed`, `awk`, `mv`, or `Edit` tool calls to mutate task files directly.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" <command> [args] [--json]
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" [--json] <command> [args]
 ```
 
 The CLI enforces every invariant automatically: atomic writes, work-log appends, filename renames when titles change, ID uniqueness, status-directory/status-field consistency, acceptance-criteria warnings, newly-unblocked-dependent detection, and CHANGELOG updates. Raw file edits skip all of that and drift the repo into inconsistent state.
@@ -64,7 +64,7 @@ Everything else is confirmatory — stay silent unless the user asked for a deta
 
 ```bash
 # Start work on what /pm:next would recommend:
-python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" next --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json next
 python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" start PRJ-042
 
 # Complete a task and learn what's unblocked:
