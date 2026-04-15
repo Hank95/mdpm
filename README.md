@@ -41,9 +41,36 @@ That walks you through first-time setup (ID prefix, default assignee, optional s
 
 ---
 
+## Two surfaces: slash commands and CLI
+
+MDPM exposes the same operations two ways:
+
+- **`/pm:*` slash commands** — for interactive sessions where the user invokes the command and expects Claude to handle it step-by-step (confirming destructive operations, asking about ambiguous refs, etc.).
+- **`bin/mdpm` CLI** — a deterministic, stdlib-only Python CLI for scripts and for Claude to use inline. Every operation is atomic, appends work log entries automatically, validates input, and returns structured JSON on `--json`.
+
+Under the hood both surfaces go through `lib/mdpm_core.py` so the behavior is identical. If you're editing tasks inline mid-session, use the CLI (`python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm <cmd>`) — never `sed` / `mv` directly. The rules file shipped with the plugin tells Claude to do the same.
+
+Quick CLI tour:
+
+```bash
+# Any operation the slash commands do, without the conversational overhead:
+mdpm new "Fix broken login" --priority high --tags auth,bug
+mdpm start PRJ-042
+mdpm log PRJ-042 "integrated with auth provider"
+mdpm block PRJ-042 waiting on security review from Alice
+mdpm unblock PRJ-042
+mdpm done PRJ-042 -m "Shipped with MFA"
+mdpm next --json            # structured output for scripting
+mdpm status                 # project dashboard
+mdpm search "gallery"       # find tasks
+mdpm archive --older-than 30
+```
+
+Run `mdpm --help` or `mdpm <command> --help` for full argument lists.
+
 ## Commands
 
-All commands are namespaced under `/pm:`.
+All slash commands are namespaced under `/pm:`.
 
 ### Daily use
 

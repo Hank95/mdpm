@@ -8,24 +8,23 @@ argument-hint: ""
 
 Pick the single best task to start next and explain why.
 
-## Steps
+## How to run
 
-1. **Read `docs/ROADMAP.md`** to understand the current milestone focus.
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" next --json
+```
 
-2. **Scan `tasks/backlog/`** and parse each task's frontmatter: `id`, `title`, `priority`, `depends_on`, `due`, `tags`.
+The CLI already filters out blocked tasks and tasks with unmet dependencies, and ranks by: overdue first → priority → due date → created.
 
-3. **Filter out blocked tasks.** A task is blocked if any ID in `depends_on` is not present in `tasks/done/`.
+## What to produce
 
-4. **Rank the unblocked candidates** by:
-   1. Overdue first (any task past `due`)
-   2. Priority (high → medium → low)
-   3. Earliest `due` date
-   4. Alignment with the current milestone (tags that match, or mentioned in ROADMAP)
-   5. `created` date (older first — don't let things rot)
+The response contains `recommendation` (the top pick) and `candidates` (top 5 for context).
 
-5. **Also consider `tasks/active/`.** If there's already active work, mention it: the user may want to finish what's in flight rather than start something new. Only recommend starting a new task if active work is stalled or if the user clearly wants the next item.
+1. Read `docs/ROADMAP.md` to understand the current milestone.
+2. Read the recommended task's body via `mdpm show <id> --json` for its acceptance criteria and notes.
+3. Check `tasks/active/` via `mdpm list --status active` — if there's already work in flight, mention it. The user may want to finish what's active rather than start something new.
 
-6. **Return one recommendation** in this format:
+Format:
 
 ```
 ## Recommendation: [PRJ-123] Task Title
@@ -36,14 +35,19 @@ Pick the single best task to start next and explain why.
 - [ ] ...
 - [ ] ...
 
-**Suggested first step:** <concrete action — usually derived from objective/notes>
+**Suggested first step:** <concrete action derived from Objective/Notes>
 
 Shall I move this to `tasks/active/` and get started?
 ```
 
-7. If there are no unblocked backlog tasks, say so plainly and suggest either triaging `tasks/inbox/` or planning new work with `/pm:plan`.
+If the user says yes, invoke `/pm:start <id>`.
+
+## Fallbacks
+
+- **recommendation: null** — no unblocked backlog tasks. Say so plainly. Suggest `/pm:inbox` to triage or `/pm:plan` to plan new work.
+- **Active work already in flight** — mention it but let the user decide whether to context-switch.
 
 ## Notes
 
-- Read-only until the user confirms. Don't move the file without permission.
-- If multiple tasks tie on ranking, pick the one most aligned with the current milestone.
+- Read-only until the user confirms the pick.
+- If candidates tie on all ranking dimensions, just pick the first one the CLI returned.

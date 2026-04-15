@@ -1,58 +1,46 @@
 ---
 name: pm:done
-description: Complete a task — move to tasks/done/, append final work log, check for unblocked dependents
+description: Complete a task — move to done/, append work log, update CHANGELOG, report unblocked dependents
 argument-hint: "<task id or partial title>"
 ---
 
 # /pm:done
 
-Mark a task complete. Argument `$ARGUMENTS` identifies the task (ID like `PRJ-123`, or a partial title match).
+Mark a task complete. Argument `$ARGUMENTS` identifies the task.
 
-## Steps
+## How to run
 
-1. **Locate the task file.**
-   - First check `tasks/active/` — completing a task from there is the common path.
-   - If not found, check `tasks/backlog/` and `tasks/inbox/` (rare but valid — skipping states is allowed).
-   - If multiple matches, list them and ask the user which one.
-   - If no `$ARGUMENTS` given, list everything in `tasks/active/` and ask which to close.
+Delegate to the CLI — it handles the file move, appends the completion log entry, updates `docs/CHANGELOG.md`, and computes which dependents are now unblocked, all atomically:
 
-2. **Check acceptance criteria.**
-   - Parse the `## Acceptance Criteria` section.
-   - If any `- [ ]` items remain unchecked, show them to the user and ask whether to:
-     a) Mark them complete now
-     b) Remove them (if no longer relevant)
-     c) Proceed anyway (acknowledging they weren't met)
-   - Only proceed once the user confirms.
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" done $ARGUMENTS --json
+```
 
-3. **Update frontmatter:**
-   - `status: done`
-   - `updated: <today YYYY-MM-DD>`
+If the user supplied a completion summary in their prompt (e.g. "close PRJ-042 — shipped with MFA"), pass it via `-m "Shipped with MFA"`.
 
-4. **Append a work log entry** with today's date and a brief summary of what was shipped. Derive it from the most recent work log entries plus any context the user provides. Example:
-   ```
-   - 2026-04-14: Completed. Shipped lightbox component, deployed to staging.
-   ```
+## Pre-flight: check acceptance criteria
 
-5. **Move the file** from its current directory to `tasks/done/`. Preserve the filename.
+Before calling `mdpm done`, run `mdpm show $ref --json` and look at `acceptance.done` vs `acceptance.total`. If there are unchecked items:
 
-6. **Check for unblocked dependents.** Scan all remaining tasks in `backlog/`, `active/`, and `inbox/` for any whose `depends_on` list includes this task's ID. For each match:
-   - Note that the dependency is now satisfied.
-   - If ALL of its `depends_on` entries are now in `done/`, point it out to the user as newly unblocked and available to start.
+1. List them for the user.
+2. Ask: mark them complete now, remove the ones that are no longer relevant, or proceed anyway acknowledging they weren't met?
+3. If the user wants to edit individual AC items, use the Edit tool on the specific `- [ ]` / `- [x]` lines in the task body, then re-check. The CLI doesn't edit AC boxes directly — that's body content, not frontmatter.
+4. When the user confirms they're done, call the CLI.
 
-7. **Update `docs/CHANGELOG.md`.** Append an entry under today's date in the Added/Changed/Fixed section that best fits. If there's no section for today yet, create one.
+## Interpreting the result
 
-8. **Report back:**
-   ```
-   ✓ [PRJ-123] Task Title — moved to tasks/done/
+- **ok: true, unblocked: [...]** — tasks that were waiting on this one are now ready. Tell the user:
+  > Now that PRJ-042 is done, PRJ-045 ("Gallery Analytics Hooks") is ready to start. Want me to kick it off?
+- **warnings: ["N unchecked acceptance criteria remaining"]** — the CLI completes the task anyway but flags this. Mention it so the user knows.
+- **ok: false, error: "not_found" / "ambiguous_ref"** — handle like `/pm:start`.
+- **ok: false, error: "precondition_failed"** — usually "already in archive — cannot re-complete". Tell the user; suggest `/pm:new` if they want a follow-up.
 
-   Unblocked by this completion:
-   - [PRJ-125] Next thing — ready to start
-   ```
+## External sync
 
-9. **Offer follow-up.** If there are newly-unblocked tasks, ask if they want to run `/pm:next`. If a stakeholder sync is configured, offer `/pm:sync-jira` or `/pm:sync-wrike` to push the completion.
+If the task has a `jira_id` or `wrike_id` in its frontmatter (check via `mdpm show`), offer to push the completion to the external system via `/pm:sync-jira` or `/pm:sync-wrike`.
 
 ## Notes
 
-- **Never delete the task file.** It moves to `done/`, stays there forever.
-- The work log is append-only. Never rewrite prior entries.
-- If the task has a `jira_id` or `wrike_id`, mention it so the user knows a sync will close the external issue too.
+- The CLI writes the CHANGELOG entry automatically. Don't duplicate.
+- Never move a done task back to `active/` or `backlog/` — if the user wants to reopen, create a follow-up with `/pm:new`.
+- `--no-changelog` exists for cases where the user explicitly doesn't want the CHANGELOG touched (e.g. test tasks). Default behavior is to update it.

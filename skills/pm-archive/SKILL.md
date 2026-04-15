@@ -6,49 +6,38 @@ argument-hint: "[--older-than <days>] [--tag <tag>] [--all]"
 
 # /pm:archive
 
-Archive tasks from `tasks/done/` into `tasks/archive/`. Archived tasks are still on disk, still searchable via `/pm:search`, just moved out of the primary view so `/pm:status` and the board stay focused on current work.
+Move tasks from `tasks/done/` into `tasks/archive/` to reduce clutter while keeping them searchable.
 
-`$ARGUMENTS` parsing:
-- `--older-than <days>` — archive done tasks whose `updated:` date is more than N days ago (default: 30).
-- `--tag <tag>` — only archive tasks with this tag.
-- `--all` — archive everything currently in `done/` regardless of age.
+## How to run
 
-## Steps
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" archive [--older-than N] [--tag T] [--all] --json
+```
 
-1. **Ensure `tasks/archive/` exists.** Create it (with `.gitkeep`) if missing.
+Default: `--older-than 30` (tasks completed more than 30 days ago).
 
-2. **Select candidates** from `tasks/done/` based on the flags above. If no flags given, use `--older-than 30`.
+## Pre-flight confirmation
 
-3. **Preview.** Show the user a compact list:
+**Always preview before running.** Archival is a bulk operation — show the user what's about to move:
+
+1. Run `mdpm list --status done --json` and filter by the same criteria (`--older-than` → compare `updated` against today minus N days).
+2. Show a compact list:
    ```
-   Archiving 12 tasks (completed > 30 days ago):
-
-   - [PRJ-001] Gallery page component — 2026-03-15
-   - [PRJ-004] Nav bar refactor — 2026-03-18
-   - ...
-
+   Archiving N tasks (completed > 30 days ago):
+     - [PRJ-001] Gallery page component — 2026-03-15
+     - [PRJ-004] Nav bar refactor — 2026-03-18
+     ...
    Proceed? [y/N]
    ```
-   Wait for confirmation. Never archive silently.
+3. If the user confirms, run the CLI. Otherwise stop.
 
-4. **On confirm**, for each task:
-   - Move the file from `tasks/done/` to `tasks/archive/`. Preserve the `<ID>-<slug>.md` filename.
-   - Append a Work Log entry:
-     ```
-     - <today>: Archived.
-     ```
+## Interpreting the result
 
-5. **Update `docs/CHANGELOG.md` is NOT required** — archival isn't a shipping event. Just move the files.
-
-6. **Report:**
-   ```
-   ✓ Archived 12 tasks to tasks/archive/
-   Still in tasks/done/: 4 tasks (completed within last 30 days)
-   ```
+- `count: N, moved: [...]` — confirm with a one-line summary: "Archived N tasks. Still in done/: M tasks completed within the last 30 days."
+- `warnings: ["no eligible tasks to archive"]` — say so and suggest checking `mdpm list --status done` to see what's there.
 
 ## Notes
 
-- **Never delete.** Archival is just a directory move.
-- **Never archive tasks outside `done/`.** Active or backlog tasks don't belong in archive.
-- Archived tasks should still be visible in `/pm:search` when the user passes `--status archive` or `--status all` (the search skill already covers this).
-- The kanban board (`board/board.html`) intentionally does NOT show archived tasks — that's the whole point of archiving.
+- **Never delete.** Archival is just a file move; archived tasks remain searchable via `mdpm search`.
+- Don't archive tasks that aren't in `tasks/done/`. The CLI enforces this, but don't suggest otherwise.
+- The kanban board excludes the archive column by design — the point of archiving is to stay focused on current work.

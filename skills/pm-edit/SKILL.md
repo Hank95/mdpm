@@ -6,53 +6,49 @@ argument-hint: "<task id or partial title> [field=value ...]"
 
 # /pm:edit
 
-Edit frontmatter fields on an existing task without disturbing the body.
+Edit frontmatter fields on an existing task. `$ARGUMENTS` is the ID or title fragment, optionally followed by field updates.
 
-`$ARGUMENTS` is an ID or title fragment, optionally followed by `key=value` pairs for one-shot edits. Examples:
+## How to run
 
-- `/pm:edit PRJ-042` → interactive mode
-- `/pm:edit PRJ-042 priority=high due=2026-05-01`
-- `/pm:edit login tags=[auth,security] assigned_to=Danny`
+Delegate to the CLI — it validates values, preserves field order in the frontmatter, bumps `updated`, appends a work log entry summarizing the change, and renames the file if the title changed:
 
-## Steps
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" edit <ref> \
+  [--title "New Title"] \
+  [--priority high|medium|low] \
+  [--due YYYY-MM-DD | --due null] \
+  [--tags a,b,c | --tags null] \
+  [--depends PRJ-001,PRJ-002 | --depends null] \
+  [--assigned-to "Name" | --assigned-to null] \
+  [--jira-id ENG-451 | --jira-id null] \
+  [--wrike-id 12345 | --wrike-id null] \
+  [--note "extra work log entry"] \
+  --json
+```
 
-1. **Locate the task** across all of `tasks/{inbox,backlog,active,done,archive}/`. If multiple matches, list them and ask which. If not found, report that.
+## Parsing the user's prompt
 
-2. **Parse any inline field assignments** from `$ARGUMENTS`. Supported editable fields:
-   - `priority` — one of `high`, `medium`, `low`
-   - `due` — `YYYY-MM-DD` or `null` to clear
-   - `tags` — list (e.g. `[a, b, c]`)
-   - `assigned_to` — name or `null`
-   - `depends_on` — list of IDs
-   - `title` — short descriptive title (also renames the file slug)
-   - `jira_id`, `jira_project`, `wrike_id` — external sync links
-   - `status` — only accept `blocked` here; other status changes happen via `/pm:start` / `/pm:done`.
+Accept natural phrasing and map to CLI flags. Examples:
 
-3. **If no inline assignments were provided**, enter interactive mode:
-   - Show the current frontmatter values.
-   - Ask which fields to change, one at a time.
-   - Don't fire off a survey — accept short answers and move on.
+- "bump PRJ-042 to high priority" → `--priority high`
+- "change PRJ-042 due to next Friday" → resolve to ISO date → `--due 2026-04-25`
+- "tag PRJ-042 with auth and security" → `--tags auth,security`
+  - If the user says "also tag", read current tags via `mdpm show <ref> --json`, append the new ones, pass the full list.
+- "assign PRJ-042 to Danny" → `--assigned-to Danny`
+- "clear the due date" / "remove the assignee" → pass `null` to the relevant flag
+- "rename PRJ-042 to 'Add MFA to login'" → `--title "Add MFA to login"` (the CLI renames the file automatically)
 
-4. **Validate.** Before writing:
-   - `priority` must be one of the allowed values.
-   - `due` must parse as a date.
-   - `depends_on` IDs should exist somewhere under `tasks/` — warn if not, but allow it (user may be planning ahead).
-   - `status: blocked` requires a reason; prompt for one and append to the Work Log.
+## Interpreting the result
 
-5. **Update the file:**
-   - Modify frontmatter in place — preserve field order and any comments.
-   - Set `updated:` to today's date.
-   - If `title` changed, regenerate the filename slug and `git mv` the file so the new name matches `<ID>-<new-slug>.md`.
-   - Append a Work Log entry summarizing the edit:
-     ```
-     - <today>: Edited — priority high→medium, added tag "security"
-     ```
+- **ok: true, changes: {...}** — summarize what changed. Concise, one line per field.
+- **warnings: ["no fields changed"]** — the user asked for a no-op. Say so and show the current values.
+- **ok: false, error: "validation_error"** — usually a bad priority or date format. Relay the CLI message.
 
-6. **Confirm** with a compact before/after diff of the fields that changed.
+## Immutable fields
+
+The CLI refuses to change `id`, `created`, or `status` via `edit`. For status transitions, use `/pm:start`, `/pm:done`, `/pm:block`, or `/pm:move`.
 
 ## Notes
 
-- **Do not edit Acceptance Criteria, Objective, Notes, or Work Log content** via this skill. Those are body edits — the user can open the file directly, or we can add a dedicated body-edit skill later.
-- **Don't change `id:` ever.** IDs are immutable. If the user asks, refuse and explain.
-- **Don't change `created:`.** Only `updated:` moves.
-- **Status transitions:** `backlog → active` uses `/pm:start`; `active → done` uses `/pm:done`. This skill only handles `→ blocked` transitions (and clearing `blocked` back to whatever was before).
+- If the user wants to edit the task body (Objective / Acceptance Criteria / Notes), that's NOT a frontmatter edit. Use the Edit tool on the file directly — or suggest they open the task in the kanban board (`python3 board/serve.py`) where the modal has an Edit button.
+- `--note` is separate from field changes. Use it when the user wants an arbitrary work-log entry alongside a metadata edit (e.g. "bump to high priority — customer escalated").

@@ -6,66 +6,38 @@ argument-hint: "<task title or description>"
 
 # /pm:new
 
-Create a new task. Arguments `$ARGUMENTS` are the task title / brief description.
+Create a new task. `$ARGUMENTS` is the task title or a brief description.
 
-## Steps
+## How to run
 
-1. **Ensure the task layout exists.** Create `tasks/backlog/` if missing.
+Delegate to the CLI — it auto-derives the ID from the project's prefix (via `.mdpm/config.json` or by scanning existing IDs), builds the filename as `<ID>-<slug>.md`, and writes the task atomically with a canonical template:
 
-2. **Determine the ID prefix.**
-   - Check `.mdpm/config.json` for `id_prefix` if it exists.
-   - Otherwise, scan existing tasks for an existing `id:` pattern and reuse it.
-   - Fall back to `PRJ-` if no convention exists, but ask the user first if this is the very first task.
-
-3. **Determine the next ID number.**
-   - Scan all `tasks/**/*.md` files, extract the numeric portion of every `id:` field.
-   - Pick `max(n) + 1`, zero-padded to 3 digits (e.g. `PRJ-001`, `PRJ-042`).
-
-4. **Parse the title.** `$ARGUMENTS` is the raw description. Derive:
-   - A short, descriptive `title:` (5-10 words)
-   - A filename: `<ID>-<kebab-case slug>.md` (e.g. `PRJ-002-add-user-login.md`). The ID prefix in the filename makes tasks sortable via `ls` and greppable by ID. Never omit it.
-   - If the user's message contains obvious priority hints ("urgent", "high-pri"), set priority accordingly. Otherwise default to `medium`.
-
-5. **Ask the user for anything unclear** — only if necessary. Don't pepper them with questions for trivial tasks. Minimum viable task needs: title, priority, and a rough objective. Tags, due dates, and dependencies can be left empty.
-
-6. **Write the file** to `tasks/backlog/<ID>-<slug>.md` using this template:
-
-```markdown
----
-id: PRJ-XXX
-title: <derived title>
-priority: medium
-status: backlog
-created: <today YYYY-MM-DD>
-updated: <today YYYY-MM-DD>
-due: null
-tags: []
-depends_on: []
-assigned_to: <from config, else empty>
-wrike_id: null
-jira_id: null
-jira_project: null
----
-
-# <title>
-
-## Objective
-<1-3 sentences restating what this task is for. Derived from $ARGUMENTS.>
-
-## Acceptance Criteria
-- [ ] <first acceptance criterion, if obvious from the description>
-- [ ] <add more as placeholders if the user should fill them in>
-
-## Notes
-<Any context the user provided, or leave a placeholder>
-
-## Work Log
-- <today YYYY-MM-DD>: Task created
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" new "<title>" \
+  --priority medium \
+  [--due YYYY-MM-DD] \
+  [--tags a,b,c] \
+  [--depends PRJ-001,PRJ-002] \
+  [--assigned-to "Henry"] \
+  [--objective "1-3 sentence objective"] \
+  --json
 ```
 
-7. **Confirm.** Tell the user the file path and ID you created, and offer to open `/pm:plan` if the task looks like it needs decomposition.
+## Parsing the user's prompt
+
+1. **Extract a clean title** from `$ARGUMENTS`. 5-10 words. Trim filler ("could you please", "I want to").
+2. **Detect priority hints**: "urgent", "high-priority", "blocker" → `--priority high`. "nice to have", "whenever" → `--priority low`. Otherwise omit (CLI defaults to medium).
+3. **Detect due dates**: "by Friday", "due 5/1", "end of month" → resolve to ISO date and pass via `--due`.
+4. **Detect tags**: if the user mentions an area ("this is for the billing feature", "frontend refactor"), include it in `--tags`.
+5. **Don't ask questions for trivial tasks.** Minimum viable: title + default priority. The user can edit later with `/pm:edit`.
+
+## Interpreting the result
+
+- **ok: true** — confirm with the assigned ID and file path. If the description looked like a multi-step feature (5+ distinct actions), offer `/pm:plan <id>` to decompose.
+- **ok: false, error: "conflict"** — unlikely but possible if a filename collision happens. Re-run; the CLI should pick the next ID.
 
 ## Notes
 
-- Do not start the task (don't move to `active/`). That's a separate intentional action.
-- Never reuse an ID. If you're uncertain, scan all directories including `done/`.
+- The CLI writes `created: <today>`, `updated: <today>`, and an initial Work Log line automatically. Don't duplicate.
+- Do NOT move the task to `tasks/active/`. `/pm:new` creates in `backlog/`; `/pm:start` handles the transition to active.
+- Never use the Write tool to create task files manually — you'd bypass ID generation and filename convention.

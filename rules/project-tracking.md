@@ -4,6 +4,86 @@ This project uses **MDPM** (Markdown Project Manager). All task state lives in m
 
 Read this file in full before doing project management work in this repo.
 
+## For Claude: Use the CLI, Not sed/mv
+
+**The single most important rule:** when you need to change task state or metadata mid-session, call the MDPM CLI — never use `sed`, `awk`, `mv`, or `Edit` tool calls to mutate task files directly.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" <command> [args] [--json]
+```
+
+The CLI enforces every invariant automatically: atomic writes, work-log appends, filename renames when titles change, ID uniqueness, status-directory/status-field consistency, acceptance-criteria warnings, newly-unblocked-dependent detection, and CHANGELOG updates. Raw file edits skip all of that and drift the repo into inconsistent state.
+
+### Commands (all operate on the current project, walking up from CWD for `tasks/`)
+
+| Command | Use it for |
+| --- | --- |
+| `mdpm list [--status S] [--priority P] [--tag T]` | Show tasks (grouped by status by default) |
+| `mdpm show <ref>` | Print a full task file |
+| `mdpm new "<title>" [--priority P] [--due D] [--tags a,b] [--depends PRJ-001]` | Create a backlog task; ID and filename slug are auto-derived |
+| `mdpm start <ref> [--force]` | Move backlog→active, append "Started work." to the log. Fails with exit 4 if deps are unmet unless `--force` |
+| `mdpm done <ref> [-m "summary"] [--no-changelog]` | Complete a task: move to done/, append log, update CHANGELOG, print unblocked dependents |
+| `mdpm block <ref> <reason...>` | Set `status: blocked`, append reason to the log |
+| `mdpm unblock <ref>` | Clear `status: blocked` back to the directory-derived status |
+| `mdpm edit <ref> [--title T] [--priority P] [--due D] [--tags a,b] [--depends ...] [--assigned-to N] [--note "..."]` | Change frontmatter fields; renames the file if title changes |
+| `mdpm log <ref> <entry...>` | Append a dated work log entry without other changes |
+| `mdpm move <ref> <status>` | Raw file move (escape hatch — prefer start/done/archive) |
+| `mdpm archive [--older-than 30] [--all] [--tag T]` | Move aged done/ tasks to archive/ |
+| `mdpm search <query> [--status S] [--tag T] [--assignee N]` | Find tasks by id/title/tags/body |
+| `mdpm next` | Recommend the next task (skips blocked, skips those with unmet deps) |
+| `mdpm status` | Dashboard: active, blocked, waiting, overdue |
+
+`<ref>` accepts an exact ID (`PRJ-042`), a case-insensitive title substring (`"user login"`), or a filename fragment. Ambiguous refs exit 2 with a candidate list on stderr.
+
+### Structured output for decisions
+
+Pass `--json` to every command you want to branch on programmatically. The response shape is:
+
+```json
+{
+  "ok": true,
+  "action": "done",
+  "task": {"id":"PRJ-042","title":"...","status":"done","path":"..."},
+  "changes": {"moved_from":"tasks/active/","moved_to":"tasks/done/","worklog_appended":true,"changelog_updated":true},
+  "unblocked": [{"id":"PRJ-045","title":"...","status":"backlog"}],
+  "warnings": ["2 unchecked acceptance criteria remaining"]
+}
+```
+
+Two keys drive what you should surface to the user:
+- `unblocked` non-empty → mention the newly-unblocked tasks. "Now that PRJ-042 is done, PRJ-045 is ready to start."
+- `warnings` non-empty → surface them. Skipped acceptance criteria, unmet deps that were forced through, "already in X state," etc.
+
+Everything else is confirmatory — stay silent unless the user asked for a detailed report.
+
+### Exit codes
+
+`0` success · `2` not found / ambiguous ref · `3` validation error (bad priority/date) · `4` precondition failed (unmet deps on start, blocked task, etc.) · `5` write conflict · `1` anything else.
+
+### Examples of common sessions
+
+```bash
+# Start work on what /pm:next would recommend:
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" next --json
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" start PRJ-042
+
+# Complete a task and learn what's unblocked:
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" done PRJ-042 -m "Shipped login with MFA"
+
+# Capture a new task inline:
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" new "Fix broken nav on mobile" --priority high --tags frontend,bug
+
+# Note partial progress without changing status:
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" log PRJ-042 "finished happy-path integration tests"
+
+# Block a task when you discover it's stuck:
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" block PRJ-042 "waiting on SAML config from infra team"
+```
+
+Tip: the user's `/pm:*` slash commands are thin wrappers for interactive sessions. When acting on the user's behalf mid-session (without them explicitly invoking a slash command), use the CLI directly — it does the same thing without the skill-to-Claude prompt overhead.
+
+---
+
 ## Directory Layout
 
 ```

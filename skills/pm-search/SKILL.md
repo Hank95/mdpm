@@ -8,53 +8,42 @@ argument-hint: "<query> [--status <state>] [--tag <tag>]"
 
 Find tasks matching a query. `$ARGUMENTS` is the search expression.
 
-## Steps
+## How to run
 
-1. **Parse arguments.**
-   - The first positional token(s) are the query string (may be multi-word).
-   - Optional flags:
-     - `--status <inbox|backlog|active|done|archive|all>` — restrict to a status (default: `all`).
-     - `--tag <tag>` — only tasks whose `tags` contain this value.
-     - `--assignee <name>` — only tasks assigned to this person.
-     - `--id` — query is an ID pattern (exact or prefix match like `PRJ-0*`).
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" search "<query>" [--status S] [--tag T] [--assignee N] --json
+```
 
-2. **Determine search scope** based on `--status`. Default searches all of `tasks/{inbox,backlog,active,done,archive}/`.
+## Parsing the user's prompt
 
-3. **Match strategy.** A task matches if any of these are true (unless flags narrow the search):
-   - The query (case-insensitive) appears in `id`, `title`, `tags`, `assigned_to`, or the body text (objective, notes, acceptance criteria, work log).
-   - For `--id` mode, match the `id:` field only, supporting simple glob patterns.
-   - Tag/assignee filters are AND-combined with the query.
+Extract the query and any filter hints:
 
-4. **Rank results.**
-   1. Exact ID match first.
-   2. Title match second.
-   3. Tag match third.
-   4. Body content match last.
-   Within a tier, sort by status (`active` → `backlog` → `inbox` → `done` → `archive`), then by `updated` desc.
+- "find tasks about authentication" → `search "authentication"`
+- "what's in the backlog about gallery" → `search "gallery" --status backlog`
+- "anything assigned to Danny" → `search "" --assignee Danny` (query can be empty — filters narrow)
+- "#frontend tasks" → `search "" --tag frontend`
 
-5. **Output** — concise, 1-3 lines per hit:
-   ```
-   Found N matches for "<query>":
+## Interpreting the result
 
-   ACTIVE
-     [PRJ-042] Add user login — priority:high due:2026-05-01
-       Matched in: title, tags[auth]
+Show the hits grouped by status (active first, then backlog, inbox, done, archive), with the matched field (title/tags/id/body) annotated. Keep it scannable — don't print task bodies. Example:
 
-   BACKLOG
-     [PRJ-055] Password reset flow — priority:medium
-       Matched in: body
+```
+Found 3 matches for "gallery":
 
-   DONE
-     [PRJ-001] Gallery page component — 2026-04-28
-   ```
+ACTIVE
+  [PRJ-042] Gallery Page Component — matched in: title, tags[gallery]
 
-6. **If nothing matches**, say so and suggest:
-   - Broadening with `--status all`
-   - Removing tag/assignee filters
-   - Running `/pm:status` to see what exists overall
+BACKLOG
+  [PRJ-055] Gallery analytics hooks — matched in: body
+
+DONE
+  [PRJ-001] Old gallery spec — 2026-04-10 — matched in: title
+```
+
+- No hits → say so. Suggest broadening with `--status all` or dropping filters.
+- More than ~15 results → show the top 10 and tell the user how to narrow (tag, status, assignee).
 
 ## Notes
 
 - Read-only. Never modify task files.
-- For large repos, cap output at ~20 results and tell the user how to narrow further.
-- Don't show full task bodies — only the matched context (a line or two of snippet is fine).
+- The CLI searches across all directories including `archive/` by default. That's usually what the user wants.

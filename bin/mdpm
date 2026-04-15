@@ -1,0 +1,914 @@
+#!/usr/bin/env python3
+"""MDPM CLI — deterministic task operations for scripts and agents.
+
+Every mutation is atomic, appends a work log entry where appropriate, and
+prints either a human-readable confirmation or a stable JSON shape when
+`--json` is passed. Designed so Claude Code (and other agents) can call it
+instead of reaching for `sed` / `mv` to change task state.
+
+Usage:
+    mdpm <command> [args] [--json]
+
+Run `mdpm --help` for the full command list.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from datetime import date
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent / "lib"))
+
+import mdpm_core as core  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+
+JSON_MODE = False
+
+
+def emit_success(action: str, task: dict | None = None, **extra) -> None:
+    payload = {"ok": True, "action": action}
+    if task is not None:
+        payload["task"] = _task_summary(task)
+    payload.setdefault("changes", {})
+    payload.setdefault("unblocked", [])
+    payload.setdefault("warnings", [])
+    payload.update(extra)
+    if JSON_MODE:
+        print(json.dumps(payload, indent=2, default=str))
+        return
+    _print_human(payload)
+
+
+def emit_error(error: str, message: str, exit_code: int = 1, **extra) -> None:
+    payload = {"ok": False, "error": error, "message": message, **extra}
+    if JSON_MODE:
+        print(json.dumps(payload, indent=2, default=str))
+    else:
+        print(f"error: {message}", file=sys.stderr)
+        if "candidates" in extra:
+            for c in extra["candidates"]:
+                print(f"  - [{c['id']}] {c['title']} ({c['status']})", file=sys.stderr)
+    sys.exit(exit_code)
+
+
+def _task_summary(task: dict) -> dict:
+    return {
+        "id": task.get("id"),
+        "title": task.get("title"),
+        "priority": task.get("priority"),
+        "status": task.get("status_dir"),
+        "due": task.get("due"),
+        "tags": task.get("tags") or [],
+        "assigned_to": task.get("assigned_to"),
+        "depends_on": task.get("depends_on") or [],
+        "path": task.get("path"),
+    }
+
+
+def _print_human(payload: dict) -> None:
+    action = payload.get("action", "")
+    task = payload.get("task") or {}
+    header = f"[{task.get('id') or '?'}] {task.get('title') or ''}".strip()
+    if header != "[?]":
+        print(f"{header} — {action}")
+    else:
+        print(action)
+
+    changes = payload.get("changes") or {}
+    for key, value in changes.items():
+        if value is None or value is False or value == []:
+            continue
+        if isinstance(value, bool):
+            print(f"  {key}")
+        else:
+            print(f"  {key}: {value}")
+
+    unblocked = payload.get("unblocked") or []
+    if unblocked:
+        print("unblocked:")
+        for u in unblocked:
+            print(f"  [{u.get('id')}] {u.get('title')} — ready to start")
+
+    warnings = payload.get("warnings") or []
+    if warnings:
+        print("warnings:")
+        for w in warnings:
+            print(f"  {w}")
+
+
+# ---------------------------------------------------------------------------
+# Argument helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_tags(raw: str | None) -> list[str] | None:
+    if raw is None:
+        return None
+    if raw.strip().lower() in ("", "null", "none"):
+        return []
+    return [t.strip() for t in raw.split(",") if t.strip()]
+
+
+def _parse_depends(raw: str | None) -> list[str] | None:
+    if raw is None:
+        return None
+    if raw.strip().lower() in ("", "null", "none"):
+        return []
+    return [t.strip() for t in raw.split(",") if t.strip()]
+
+
+def _parse_priority(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    if raw not in ("high", "medium", "low"):
+        raise core.ValidationError(f"priority must be high, medium, or low (got {raw!r})")
+    return raw
+
+
+def _parse_date(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    if raw.lower() in ("null", "none", "clear"):
+        return None  # sentinel: "explicitly clear"
+    try:
+        date.fromisoformat(raw)
+    except ValueError:
+        raise core.ValidationError(f"date must be YYYY-MM-DD (got {raw!r})")
+    return raw
+
+
+def _resolve_root(args) -> Path:
+    if getattr(args, "root", None):
+        return Path(args.root).resolve()
+    return core.find_project_root()
+
+
+def _lookup(root: Path, ref: str) -> dict:
+    return core.find_task_by_ref(root, ref, include_archive=True)
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+
+def cmd_list(args) -> int:
+    root = _resolve_root(args)
+    tasks = core.load_all_tasks(root, include_archive=args.include_archive)
+
+    def keep(t: dict) -> bool:
+        if args.status and t["status_dir"] != args.status:
+            return False
+        if args.priority and t["priority"] != args.priority:
+            return False
+        if args.tag and args.tag not in (t["tags"] or []):
+            return False
+        if args.assignee and (t["assigned_to"] or "") != args.assignee:
+            return False
+        if args.overdue and not t["overdue"]:
+            return False
+        return True
+
+    tasks = [t for t in tasks if keep(t)]
+
+    if JSON_MODE:
+        print(json.dumps({
+            "ok": True,
+            "action": "list",
+            "count": len(tasks),
+            "tasks": [_task_summary(t) for t in tasks],
+        }, indent=2, default=str))
+        return 0
+
+    if not tasks:
+        print("no matching tasks")
+        return 0
+
+    # Group by status for readability
+    for status in list(core.ALL_STATUS_DIRS):
+        group = [t for t in tasks if t["status_dir"] == status]
+        if not group:
+            continue
+        print(f"\n{status.upper()} ({len(group)})")
+        for t in group:
+            due = f" · due {t['due']}" if t["due"] else ""
+            overdue = " ⚠ OVERDUE" if t["overdue"] else ""
+            tags = f" [{', '.join(t['tags'])}]" if t["tags"] else ""
+            print(f"  [{t['id']}] {t['title']} — {t['priority']}{due}{overdue}{tags}")
+    return 0
+
+
+def cmd_show(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    if JSON_MODE:
+        full = dict(_task_summary(t))
+        full.update({
+            "objective": t["objective"],
+            "notes": t["notes"],
+            "acceptance": t["acceptance"],
+            "latest_log": t["latest_log"],
+            "frontmatter": t["frontmatter"],
+        })
+        print(json.dumps({"ok": True, "action": "show", "task": full}, indent=2, default=str))
+        return 0
+    print(Path(t["path"]).read_text(encoding="utf-8"))
+    return 0
+
+
+def cmd_new(args) -> int:
+    root = _resolve_root(args)
+    cfg = core.load_config(root)
+    task_id = core.next_task_id(root)
+    today = date.today().isoformat()
+    title = args.title.strip()
+    if not title:
+        raise core.ValidationError("title is required")
+
+    fm = {
+        "id": task_id,
+        "title": title,
+        "priority": _parse_priority(args.priority) or "medium",
+        "status": "backlog",
+        "created": today,
+        "updated": today,
+        "due": _parse_date(args.due),
+        "tags": _parse_tags(args.tags) or [],
+        "depends_on": _parse_depends(args.depends) or [],
+        "assigned_to": args.assigned_to or cfg.get("default_assignee"),
+        "wrike_id": None,
+        "jira_id": None,
+        "jira_project": cfg.get("jira", {}).get("default_project"),
+    }
+
+    objective = args.objective or title
+    body = (
+        f"# {title}\n"
+        f"\n"
+        f"## Objective\n{objective}\n"
+        f"\n"
+        f"## Acceptance Criteria\n- [ ] \n"
+        f"\n"
+        f"## Notes\n\n"
+        f"## Work Log\n- {today}: Task created.\n"
+    )
+
+    backlog_dir = root / "tasks" / "backlog"
+    backlog_dir.mkdir(parents=True, exist_ok=True)
+    target = backlog_dir / core.compute_filename(task_id, title)
+    if target.exists():
+        raise core.ConflictError(f"{target} already exists")
+    core.write_task_file(target, fm, body)
+
+    task = core.load_task(target, "backlog")
+    emit_success(
+        "new",
+        task=task,
+        changes={"created": str(target.relative_to(root))},
+    )
+    return 0
+
+
+def cmd_start(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    if t["status_dir"] == "active":
+        emit_success("start", task=t, warnings=["already active — no change"])
+        return 0
+    if t["status_dir"] in ("done", "archive"):
+        raise core.PreconditionError(
+            f"{t['id']} is in {t['status_dir']}; start refuses to reopen shipped work"
+        )
+
+    # Check for unmet deps
+    all_tasks = core.load_all_tasks(root, include_archive=True)
+    done_ids = {x["id"] for x in all_tasks if x["status_dir"] in ("done", "archive") and x["id"]}
+    unmet = [d for d in (t["depends_on"] or []) if d not in done_ids]
+    warnings = []
+    if unmet and not args.force:
+        raise core.PreconditionError(
+            f"{t['id']} has unmet dependencies: {', '.join(unmet)} (use --force to override)"
+        )
+    if unmet:
+        warnings.append(f"started despite unmet deps: {', '.join(unmet)}")
+
+    new_path = core.move_task(root, t, "active")
+    # Append work log entry on the new path
+    new_task = core.load_task(new_path, "active")
+    fm = dict(new_task["frontmatter"])
+    body = core.append_worklog(new_task["body"], "Started work.")
+    core.write_task_file(new_path, fm, body)
+    new_task = core.load_task(new_path, "active")
+
+    emit_success(
+        "start",
+        task=new_task,
+        changes={
+            "moved_from": f"tasks/{t['status_dir']}/",
+            "moved_to": "tasks/active/",
+            "worklog_appended": True,
+        },
+        warnings=warnings,
+    )
+    return 0
+
+
+def cmd_done(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    if t["status_dir"] == "done":
+        emit_success("done", task=t, warnings=["already done — no change"])
+        return 0
+    if t["status_dir"] == "archive":
+        raise core.PreconditionError(f"{t['id']} is archived; cannot re-complete")
+
+    # Warn about unchecked AC
+    ac_done, ac_total = t["acceptance"]["done"], t["acceptance"]["total"]
+    warnings = []
+    if ac_total and ac_done < ac_total:
+        warnings.append(f"{ac_total - ac_done} unchecked acceptance criteria remaining")
+
+    new_path = core.move_task(root, t, "done")
+    completion_msg = args.message or "Completed."
+    new_task = core.load_task(new_path, "done")
+    fm = dict(new_task["frontmatter"])
+    body = core.append_worklog(new_task["body"], completion_msg)
+    core.write_task_file(new_path, fm, body)
+    new_task = core.load_task(new_path, "done")
+
+    changes = {
+        "moved_from": f"tasks/{t['status_dir']}/",
+        "moved_to": "tasks/done/",
+        "worklog_appended": True,
+    }
+
+    # Update CHANGELOG
+    if not args.no_changelog:
+        _append_to_changelog(root, new_task, completion_msg)
+        changes["changelog_updated"] = True
+
+    # Newly unblocked dependents
+    unblocked = core.newly_unblocked(root, new_task["id"])
+    unblocked_summary = [{"id": u["id"], "title": u["title"], "status": u["status_dir"]} for u in unblocked]
+
+    emit_success(
+        "done",
+        task=new_task,
+        changes=changes,
+        unblocked=unblocked_summary,
+        warnings=warnings,
+    )
+    return 0
+
+
+def cmd_block(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    if t["status_dir"] in ("done", "archive"):
+        raise core.PreconditionError(f"{t['id']} is {t['status_dir']}; cannot block")
+
+    reason = " ".join(args.reason).strip()
+    if not reason:
+        raise core.ValidationError("a reason is required (pass the reason text after the id)")
+
+    path = Path(t["path"])
+    fm = dict(t["frontmatter"])
+    fm["status"] = "blocked"
+    fm["updated"] = date.today().isoformat()
+    body = core.append_worklog(t["body"], f"Blocked — {reason}")
+    core.write_task_file(path, fm, body)
+
+    updated = core.load_task(path, t["status_dir"])
+    emit_success(
+        "block",
+        task=updated,
+        changes={"status_field": "blocked", "worklog_appended": True, "reason": reason},
+    )
+    return 0
+
+
+def cmd_unblock(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    if t["frontmatter"].get("status") != "blocked":
+        emit_success("unblock", task=t, warnings=["task is not blocked — no change"])
+        return 0
+
+    path = Path(t["path"])
+    fm = dict(t["frontmatter"])
+    # Restore status based on directory
+    fm["status"] = t["status_dir"]
+    fm["updated"] = date.today().isoformat()
+    body = core.append_worklog(t["body"], "Unblocked.")
+    core.write_task_file(path, fm, body)
+
+    updated = core.load_task(path, t["status_dir"])
+    emit_success(
+        "unblock",
+        task=updated,
+        changes={"status_field": fm["status"], "worklog_appended": True},
+    )
+    return 0
+
+
+def cmd_move(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    if args.status not in core.ALL_STATUS_DIRS:
+        raise core.ValidationError(
+            f"status must be one of {', '.join(core.ALL_STATUS_DIRS)}"
+        )
+    if t["status_dir"] == args.status:
+        emit_success("move", task=t, warnings=[f"already in {args.status}"])
+        return 0
+
+    new_path = core.move_task(root, t, args.status)
+    new_task = core.load_task(new_path, args.status if args.status in core.STATUS_DIRS else "archive")
+    emit_success(
+        "move",
+        task=new_task,
+        changes={
+            "moved_from": f"tasks/{t['status_dir']}/",
+            "moved_to": f"tasks/{args.status}/",
+        },
+    )
+    return 0
+
+
+def cmd_edit(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    path = Path(t["path"])
+    fm = dict(t["frontmatter"])
+    body = t["body"]
+
+    diffs = {}
+
+    if args.title is not None:
+        fm["title"] = args.title
+        diffs["title"] = args.title
+
+    if args.priority is not None:
+        fm["priority"] = _parse_priority(args.priority)
+        diffs["priority"] = fm["priority"]
+
+    if args.due is not None:
+        fm["due"] = _parse_date(args.due)
+        diffs["due"] = fm["due"]
+
+    if args.tags is not None:
+        fm["tags"] = _parse_tags(args.tags)
+        diffs["tags"] = fm["tags"]
+
+    if args.depends is not None:
+        fm["depends_on"] = _parse_depends(args.depends)
+        diffs["depends_on"] = fm["depends_on"]
+
+    if args.assigned_to is not None:
+        fm["assigned_to"] = None if args.assigned_to.lower() in ("null", "none", "clear") else args.assigned_to
+        diffs["assigned_to"] = fm["assigned_to"]
+
+    if args.jira_id is not None:
+        fm["jira_id"] = None if args.jira_id.lower() in ("null", "none") else args.jira_id
+        diffs["jira_id"] = fm["jira_id"]
+
+    if args.wrike_id is not None:
+        fm["wrike_id"] = None if args.wrike_id.lower() in ("null", "none") else args.wrike_id
+        diffs["wrike_id"] = fm["wrike_id"]
+
+    if not diffs and not args.note:
+        emit_success("edit", task=t, warnings=["no fields changed"])
+        return 0
+
+    fm["updated"] = date.today().isoformat()
+
+    if args.note:
+        body = core.append_worklog(body, args.note.strip())
+
+    # Log the field changes to the work log if non-trivial
+    if diffs:
+        change_summary = ", ".join(f"{k}={v}" for k, v in diffs.items())
+        body = core.append_worklog(body, f"Edited ({change_summary}).")
+
+    # If the title changed, rename the file
+    if "title" in diffs and t["id"]:
+        core.write_task_file(path, fm, body)
+        new_path = core.rename_for_title(path, fm["title"], t["id"])
+        path = new_path
+    else:
+        core.write_task_file(path, fm, body)
+
+    updated = core.load_task(path, t["status_dir"])
+    emit_success("edit", task=updated, changes=diffs)
+    return 0
+
+
+def cmd_log(args) -> int:
+    root = _resolve_root(args)
+    t = _lookup(root, args.ref)
+    entry = " ".join(args.entry).strip()
+    if not entry:
+        raise core.ValidationError("log entry text is required")
+    path = Path(t["path"])
+    fm = dict(t["frontmatter"])
+    fm["updated"] = date.today().isoformat()
+    body = core.append_worklog(t["body"], entry)
+    core.write_task_file(path, fm, body)
+    updated = core.load_task(path, t["status_dir"])
+    emit_success("log", task=updated, changes={"worklog_appended": True, "entry": entry})
+    return 0
+
+
+def cmd_archive(args) -> int:
+    root = _resolve_root(args)
+    done_dir = root / "tasks" / "done"
+    archive_dir = root / "tasks" / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    if not done_dir.exists():
+        emit_success("archive", warnings=["no tasks/done/ directory"])
+        return 0
+
+    tasks = [core.load_task(p, "done") for p in sorted(done_dir.glob("*.md"))]
+
+    def keep(t: dict) -> bool:
+        if args.tag and args.tag not in (t["tags"] or []):
+            return False
+        if args.all:
+            return True
+        cutoff_updated = t["updated"]
+        if not cutoff_updated:
+            return False
+        cutoff = (date.today() - _days_ago(args.older_than)).isoformat()
+        return str(cutoff_updated) <= cutoff
+
+    to_move = [t for t in tasks if keep(t)]
+    if not to_move:
+        emit_success("archive", warnings=["no eligible tasks to archive"])
+        return 0
+
+    moved = []
+    for t in to_move:
+        path = Path(t["path"])
+        dst = archive_dir / path.name
+        if dst.exists():
+            continue
+        fm = dict(t["frontmatter"])
+        fm["updated"] = date.today().isoformat()
+        body = core.append_worklog(t["body"], "Archived.")
+        core.write_task_file(path, fm, body)
+        os.replace(path, dst)
+        moved.append({"id": t["id"], "title": t["title"], "to": str(dst.relative_to(root))})
+
+    if JSON_MODE:
+        print(json.dumps({
+            "ok": True, "action": "archive", "count": len(moved), "moved": moved,
+        }, indent=2, default=str))
+    else:
+        print(f"archived {len(moved)} tasks")
+        for m in moved:
+            print(f"  [{m['id']}] {m['title']} → {m['to']}")
+    return 0
+
+
+def _days_ago(n: int):
+    from datetime import timedelta
+    return timedelta(days=n)
+
+
+def _append_to_changelog(root: Path, task: dict, message: str) -> None:
+    path = root / "docs" / "CHANGELOG.md"
+    today = date.today().isoformat()
+    entry = f"- [{task['id']}] {task['title']} — {message.rstrip('.')}."
+
+    if not path.exists():
+        header = "# Changelog\n\nAll notable changes and shipped work. Newest first.\n\n---\n\n"
+        body = f"## [{today}]\n### Added\n{entry}\n"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(header + body, encoding="utf-8")
+        return
+
+    text = path.read_text(encoding="utf-8")
+    header = f"## [{today}]"
+    if header in text:
+        # Insert entry under today's section, preferably under Added subheading
+        idx = text.index(header)
+        # Find next "##" after header
+        next_section = text.find("\n## ", idx + 1)
+        section_end = next_section if next_section != -1 else len(text)
+        section = text[idx:section_end]
+        # Try to inject under Added
+        if "### Added" in section:
+            insert_at = idx + section.index("### Added") + len("### Added")
+            new_text = text[:insert_at] + "\n" + entry + text[insert_at:]
+        else:
+            new_text = text[:section_end] + "\n" + entry + "\n" + text[section_end:]
+        path.write_text(new_text, encoding="utf-8")
+        return
+
+    # No section for today yet — inject after the "---" separator or at the top of the entries
+    insert_marker = "<!-- Add entries below -->"
+    new_block = f"\n## [{today}]\n### Added\n{entry}\n"
+    if insert_marker in text:
+        new_text = text.replace(insert_marker, insert_marker + new_block)
+    else:
+        new_text = text + new_block
+    path.write_text(new_text, encoding="utf-8")
+
+
+def cmd_search(args) -> int:
+    root = _resolve_root(args)
+    q = args.query.lower().strip()
+    tasks = core.load_all_tasks(root, include_archive=True)
+    hits = []
+    for t in tasks:
+        if args.status and t["status_dir"] != args.status:
+            continue
+        if args.tag and args.tag not in (t["tags"] or []):
+            continue
+        if args.assignee and (t["assigned_to"] or "") != args.assignee:
+            continue
+        haystacks = {
+            "id": (t["id"] or "").lower(),
+            "title": (t["title"] or "").lower(),
+            "tags": " ".join(t["tags"] or []).lower(),
+            "body": f"{t['objective']}\n{t['notes']}\n{t.get('latest_log', '')}".lower(),
+        }
+        matched = [k for k, v in haystacks.items() if q in v]
+        if matched:
+            hits.append((t, matched))
+
+    if JSON_MODE:
+        print(json.dumps({
+            "ok": True, "action": "search", "query": q, "count": len(hits),
+            "hits": [{
+                "task": _task_summary(t),
+                "matched_in": m,
+            } for t, m in hits]
+        }, indent=2, default=str))
+        return 0
+
+    if not hits:
+        print(f"no matches for {args.query!r}")
+        return 0
+
+    print(f"{len(hits)} match(es) for {args.query!r}:\n")
+    for t, matched in hits[:50]:
+        print(f"  [{t['id']}] {t['title']} — {t['status_dir']} (matched: {', '.join(matched)})")
+    if len(hits) > 50:
+        print(f"  … and {len(hits) - 50} more")
+    return 0
+
+
+def cmd_next(args) -> int:
+    root = _resolve_root(args)
+    all_tasks = core.load_all_tasks(root)
+    done_ids = {t["id"] for t in core.load_all_tasks(root, include_archive=True)
+                if t["status_dir"] in ("done", "archive") and t["id"]}
+
+    def is_blocked(t):
+        return t["frontmatter"].get("status") == "blocked"
+
+    def unmet_deps(t):
+        return [d for d in (t["depends_on"] or []) if d not in done_ids]
+
+    candidates = [
+        t for t in all_tasks
+        if t["status_dir"] == "backlog" and not is_blocked(t) and not unmet_deps(t)
+    ]
+
+    today = date.today().isoformat()
+    PR = {"high": 0, "medium": 1, "low": 2}
+
+    def rank(t):
+        return (
+            0 if (t["due"] and str(t["due"]) < today) else 1,  # overdue first
+            PR.get(t["priority"], 3),
+            t["due"] or "9999-99-99",
+            t["created"] or "9999-99-99",
+        )
+
+    candidates.sort(key=rank)
+    pick = candidates[0] if candidates else None
+
+    if JSON_MODE:
+        print(json.dumps({
+            "ok": True, "action": "next",
+            "recommendation": _task_summary(pick) if pick else None,
+            "candidates": [_task_summary(c) for c in candidates[:5]],
+        }, indent=2, default=str))
+        return 0
+
+    if not pick:
+        print("no available backlog tasks (all blocked, waiting on deps, or backlog empty)")
+        return 0
+    print(f"Recommendation: [{pick['id']}] {pick['title']}")
+    print(f"  priority: {pick['priority']}  due: {pick['due'] or '—'}")
+    if pick["tags"]:
+        print(f"  tags: {', '.join(pick['tags'])}")
+    print(f"  objective: {pick['objective'][:160]}")
+    return 0
+
+
+def cmd_status(args) -> int:
+    root = _resolve_root(args)
+    tasks = core.load_all_tasks(root)
+    by_status = {s: [t for t in tasks if t["status_dir"] == s] for s in core.STATUS_DIRS}
+
+    # Identify blockers vs waiting
+    done_ids = {t["id"] for t in core.load_all_tasks(root, include_archive=True)
+                if t["status_dir"] in ("done", "archive") and t["id"]}
+    blocked = [t for t in tasks if t["frontmatter"].get("status") == "blocked"]
+    waiting = [
+        t for t in tasks
+        if t["status_dir"] in ("backlog", "active")
+        and not t["frontmatter"].get("status") == "blocked"
+        and any(d not in done_ids for d in (t["depends_on"] or []))
+    ]
+    today = date.today().isoformat()
+    overdue = [t for t in tasks if t["overdue"]]
+
+    if JSON_MODE:
+        print(json.dumps({
+            "ok": True, "action": "status",
+            "counts": {s: len(by_status[s]) for s in core.STATUS_DIRS},
+            "active": [_task_summary(t) for t in by_status["active"]],
+            "blocked": [_task_summary(t) for t in blocked],
+            "waiting": [_task_summary(t) for t in waiting],
+            "overdue": [_task_summary(t) for t in overdue],
+        }, indent=2, default=str))
+        return 0
+
+    print(f"# MDPM Status ({today})\n")
+    for status in core.STATUS_DIRS:
+        group = by_status[status]
+        if not group:
+            continue
+        print(f"{status.upper()} ({len(group)})")
+        for t in group[:10]:
+            flags = []
+            if t["overdue"]:
+                flags.append("OVERDUE")
+            if t["frontmatter"].get("status") == "blocked":
+                flags.append("BLOCKED")
+            flag_str = f" [{', '.join(flags)}]" if flags else ""
+            print(f"  [{t['id']}] {t['title']} — {t['priority']}{flag_str}")
+        if len(group) > 10:
+            print(f"  … and {len(group) - 10} more")
+        print()
+    if blocked:
+        print("BLOCKERS")
+        for t in blocked:
+            print(f"  [{t['id']}] {t['title']}")
+        print()
+    if waiting:
+        print("WAITING ON UPSTREAM")
+        for t in waiting:
+            unmet = [d for d in (t["depends_on"] or []) if d not in done_ids]
+            print(f"  [{t['id']}] {t['title']} — waiting on {', '.join(unmet)}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="mdpm",
+        description=(
+            "MDPM CLI — deterministic task operations. Prefer this over sed/mv "
+            "when modifying tasks inline. Pass --json for structured output."
+        ),
+    )
+    parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable output")
+    parser.add_argument("--root", help="project root (defaults to walking up from CWD)")
+
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_list = sub.add_parser("list", help="list tasks")
+    p_list.add_argument("--status", choices=core.ALL_STATUS_DIRS)
+    p_list.add_argument("--priority", choices=("high", "medium", "low"))
+    p_list.add_argument("--tag")
+    p_list.add_argument("--assignee")
+    p_list.add_argument("--overdue", action="store_true")
+    p_list.add_argument("--include-archive", action="store_true")
+    p_list.set_defaults(func=cmd_list)
+
+    p_show = sub.add_parser("show", help="print a task file (or its structured form with --json)")
+    p_show.add_argument("ref")
+    p_show.set_defaults(func=cmd_show)
+
+    p_new = sub.add_parser("new", help="create a new backlog task")
+    p_new.add_argument("title")
+    p_new.add_argument("--priority")
+    p_new.add_argument("--due")
+    p_new.add_argument("--tags")
+    p_new.add_argument("--depends")
+    p_new.add_argument("--assigned-to", dest="assigned_to")
+    p_new.add_argument("--objective", help="objective text (defaults to title)")
+    p_new.set_defaults(func=cmd_new)
+
+    p_start = sub.add_parser("start", help="move a task to tasks/active/ and log start")
+    p_start.add_argument("ref")
+    p_start.add_argument("--force", action="store_true", help="start despite unmet deps")
+    p_start.set_defaults(func=cmd_start)
+
+    p_done = sub.add_parser("done", help="complete a task; updates CHANGELOG and reports unblocked dependents")
+    p_done.add_argument("ref")
+    p_done.add_argument("--message", "-m", help="completion summary (default: 'Completed.')")
+    p_done.add_argument("--no-changelog", action="store_true")
+    p_done.set_defaults(func=cmd_done)
+
+    p_block = sub.add_parser("block", help="mark a task blocked with a reason")
+    p_block.add_argument("ref")
+    p_block.add_argument("reason", nargs="+", help="reason (required)")
+    p_block.set_defaults(func=cmd_block)
+
+    p_unblock = sub.add_parser("unblock", help="clear the blocked status")
+    p_unblock.add_argument("ref")
+    p_unblock.set_defaults(func=cmd_unblock)
+
+    p_move = sub.add_parser("move", help="move a task to any status directory (escape hatch)")
+    p_move.add_argument("ref")
+    p_move.add_argument("status", choices=core.ALL_STATUS_DIRS)
+    p_move.set_defaults(func=cmd_move)
+
+    p_edit = sub.add_parser("edit", help="update frontmatter fields")
+    p_edit.add_argument("ref")
+    p_edit.add_argument("--title")
+    p_edit.add_argument("--priority")
+    p_edit.add_argument("--due", help="YYYY-MM-DD or 'null' to clear")
+    p_edit.add_argument("--tags", help="comma-separated (empty or 'null' to clear)")
+    p_edit.add_argument("--depends", help="comma-separated IDs")
+    p_edit.add_argument("--assigned-to", dest="assigned_to")
+    p_edit.add_argument("--jira-id", dest="jira_id")
+    p_edit.add_argument("--wrike-id", dest="wrike_id")
+    p_edit.add_argument("--note", help="extra work log entry to append")
+    p_edit.set_defaults(func=cmd_edit)
+
+    p_log = sub.add_parser("log", help="append a work log entry")
+    p_log.add_argument("ref")
+    p_log.add_argument("entry", nargs="+")
+    p_log.set_defaults(func=cmd_log)
+
+    p_archive = sub.add_parser("archive", help="move aged done tasks to tasks/archive/")
+    p_archive.add_argument("--older-than", type=int, default=30, dest="older_than")
+    p_archive.add_argument("--tag")
+    p_archive.add_argument("--all", action="store_true")
+    p_archive.set_defaults(func=cmd_archive)
+
+    p_search = sub.add_parser("search", help="find tasks by title/tag/id/body")
+    p_search.add_argument("query")
+    p_search.add_argument("--status", choices=core.ALL_STATUS_DIRS)
+    p_search.add_argument("--tag")
+    p_search.add_argument("--assignee")
+    p_search.set_defaults(func=cmd_search)
+
+    p_next = sub.add_parser("next", help="recommend the next task to start")
+    p_next.set_defaults(func=cmd_next)
+
+    p_status = sub.add_parser("status", help="print the project dashboard")
+    p_status.set_defaults(func=cmd_status)
+
+    return parser
+
+
+def main(argv: list[str]) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    global JSON_MODE
+    JSON_MODE = bool(getattr(args, "json", False))
+
+    try:
+        return args.func(args) or 0
+    except core.AmbiguousRefError as exc:
+        emit_error("ambiguous_ref", str(exc), exit_code=exc.exit_code, candidates=exc.candidates)
+    except core.NotFoundError as exc:
+        emit_error("not_found", str(exc), exit_code=exc.exit_code)
+    except core.ValidationError as exc:
+        emit_error("validation_error", str(exc), exit_code=exc.exit_code)
+    except core.PreconditionError as exc:
+        emit_error("precondition_failed", str(exc), exit_code=exc.exit_code)
+    except core.ConflictError as exc:
+        emit_error("conflict", str(exc), exit_code=exc.exit_code)
+    except core.MdpmError as exc:
+        emit_error("error", str(exc), exit_code=exc.exit_code)
+    except FileNotFoundError as exc:
+        emit_error("not_found", str(exc), exit_code=2)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

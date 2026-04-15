@@ -6,48 +6,49 @@ argument-hint: ""
 
 # /pm:status
 
-Read the project's task state and produce a concise dashboard for the user.
+Read the project's task state and produce a concise dashboard.
 
-## Steps
+## How to run
 
-1. **Check the tracking layout.** Confirm that `tasks/active/`, `tasks/backlog/`, `tasks/done/`, and `tasks/inbox/` exist. If `tasks/` does not exist at all, tell the user MDPM has not been initialized and suggest running `/pm:config`.
+Delegate to the CLI. Use `--json` so you can rearrange and format the output to fit the user's audience:
 
-2. **Read `docs/ROADMAP.md`** to identify the current milestone.
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" status --json
+```
 
-3. **Scan each status directory** and collect task metadata from YAML frontmatter:
-   - `tasks/active/*.md` — in-progress work
-   - `tasks/backlog/*.md` — queued work (sort by priority, then `created` date)
-   - `tasks/inbox/*.md` — untriaged incoming requests
-   - `tasks/done/*.md` — only count for a "recently completed" tally (items updated in the last 7 days)
+## What to produce
 
-4. **Identify blockers vs waiting tasks.** Two distinct concepts:
-   - **Blocked** — a task with `status: blocked` in frontmatter. Something external (review, external team, missing info) is stopping progress. These deserve attention.
-   - **Waiting** — a task whose `depends_on` references another task not yet in `done/`, but the dependency is itself in `backlog/` or `active/` (i.e. just hasn't shipped yet). These are sequenced, not stuck. Don't mix them with blockers.
-   - **Orphaned** — `depends_on` references an ID that doesn't exist anywhere. Call this out separately as a data issue.
+The CLI returns:
+```json
+{
+  "counts": {"inbox": N, "backlog": N, "active": N, "done": N},
+  "active": [...],
+  "blocked": [...],
+  "waiting": [...],
+  "overdue": [...]
+}
+```
 
-5. **Check for overdue tasks** — any active or backlog task with a `due:` date earlier than today.
-
-6. **Produce the dashboard** using this format:
+Combine with `docs/ROADMAP.md` (read it via Read tool) to identify the current milestone. Produce a dashboard like:
 
 ```
 # Project Status — <current milestone from ROADMAP>
 
 ## Active (<count>)
-- [PRJ-123] Title — priority, assigned_to, due YYYY-MM-DD
-  Last log: <most recent work log entry>
+- [PRJ-123] Title — priority, due YYYY-MM-DD
+  Last log: <latest_log from mdpm show>
 
-## Up Next (top 3 from backlog, sorted by priority)
+## Up Next (top 3 from backlog, ranked by priority)
 - [PRJ-124] Title — priority, tags
-- ...
 
 ## Inbox (<count> untriaged)
-- <titles only, no detail — suggest /pm:inbox to triage>
+- <titles only — suggest /pm:inbox to triage>
 
 ## Blockers
-- [PRJ-123] blocked — <reason from work log or notes>
+- [PRJ-123] blocked — <reason from latest blocking log entry>
 
 ## Waiting on upstream
-- [PRJ-123] waiting on [PRJ-099] "<title of dep>" (<status of dep>)
+- [PRJ-123] waiting on [PRJ-099] ("<title of dep>", <status>)
 
 ## Overdue
 - [PRJ-123] was due YYYY-MM-DD
@@ -56,9 +57,15 @@ Read the project's task state and produce a concise dashboard for the user.
 - [PRJ-120] Title — YYYY-MM-DD
 ```
 
-7. **Be terse.** Single-line entries unless there's a blocker that needs explaining. No filler.
+For "Recently Shipped" and "Up Next", run `mdpm list --status done --json` and `mdpm list --status backlog --json` respectively and filter/sort in your response.
+
+## Output discipline
+
+- Omit any section that would be empty. Don't print "Blockers: None."
+- Single-line entries unless a blocker needs explanation.
+- No filler. This is a scan, not a report.
 
 ## Notes
 
-- If there's nothing in a section, omit the section entirely rather than saying "None".
-- Don't modify any files. This command is read-only.
+- Read-only — don't modify any files.
+- The distinction between "Blockers" (status field is blocked — external obstacle) and "Waiting on upstream" (unmet `depends_on` — just sequenced) matters. The CLI gives you both separately in the JSON; keep them separate in the dashboard.
