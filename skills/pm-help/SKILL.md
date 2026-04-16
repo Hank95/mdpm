@@ -1,5 +1,4 @@
 ---
-name: pm-help
 description: List all MDPM commands with a one-line description
 ---
 

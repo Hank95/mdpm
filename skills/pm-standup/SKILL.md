@@ -1,5 +1,4 @@
 ---
-name: pm-standup
 description: Generate a stakeholder-ready standup summary (yesterday / today / blockers)
 argument-hint: "[audience]"
 ---

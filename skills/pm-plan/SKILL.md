@@ -1,5 +1,4 @@
 ---
-name: pm-plan
 description: Break a feature or epic into 3-8 scoped tasks with dependency mapping
 argument-hint: "<feature description or task ID to decompose>"
 ---

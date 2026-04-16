@@ -1,5 +1,4 @@
 ---
-name: pm-inbox
 description: Triage incoming requests in tasks/inbox/ — one at a time
 ---
 

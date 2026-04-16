@@ -1,5 +1,4 @@
 ---
-name: pm-search
 description: Search tasks by title, tag, ID, assignee, or content
 argument-hint: "<query> [--status <state>] [--tag <tag>]"
 ---

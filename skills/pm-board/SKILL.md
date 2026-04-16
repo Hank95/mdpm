@@ -1,5 +1,4 @@
 ---
-name: pm-board
 description: Print the command to launch the local kanban board (does not start a background server)
 argument-hint: "[port]"
 ---

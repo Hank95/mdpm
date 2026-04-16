@@ -1,5 +1,4 @@
 ---
-name: pm-edit
 description: Edit a task's metadata (priority, due date, tags, assignee, dependencies)
 argument-hint: "<task id or partial title> [field=value ...]"
 ---

@@ -1,5 +1,4 @@
 ---
-name: pm-done
 description: Complete a task — move to done/, append work log, update CHANGELOG, report unblocked dependents
 argument-hint: "<task id or partial title>"
 ---
