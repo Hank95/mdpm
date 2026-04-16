@@ -1,10 +1,10 @@
 ---
-name: pm:sync-jira
+name: pm-sync-jira
 description: Sync task state with Jira via MCP (optional, graceful degradation)
 argument-hint: "[push|pull|both]"
 ---
 
-# /pm:sync-jira
+# /pm-sync-jira
 
 Bridge MDPM tasks with Jira. Works only if a Jira MCP server is connected.
 
@@ -94,7 +94,7 @@ For each new issue:
   - `jira_project: ENG`
   - `title`, `priority`, `tags`, `due` copied from Jira
   - Objective populated from the issue description
-- Don't auto-triage. Leave to the user via `/pm:inbox`.
+- Don't auto-triage. Leave to the user via `/pm-inbox`.
 
 ### 4. Report
 
@@ -104,7 +104,7 @@ Jira sync complete:
 - Pushed 2 status updates
 - Posted 4 work log comments
 - Created 1 new Jira issue (PRJ-123 → ENG-451)
-- Pulled 3 new inbox items — run /pm:inbox to triage
+- Pulled 3 new inbox items — run /pm-inbox to triage
 ```
 
 ## Notes

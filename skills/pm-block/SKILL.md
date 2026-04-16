@@ -1,10 +1,10 @@
 ---
-name: pm:block
+name: pm-block
 description: Mark a task as blocked with a reason appended to the work log
 argument-hint: "<task id or partial title> [reason]"
 ---
 
-# /pm:block
+# /pm-block
 
 Mark a task blocked when progress is stopped by something external — a review, a missing decision, an API that's down, another team's work.
 
@@ -27,20 +27,20 @@ python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json block PRJ-042 waiting on securit
 
 - Strip the task ID / ref from `$ARGUMENTS` — first token.
 - Everything after is the reason. Pass it as positional args.
-- If no reason is given, **ask** — don't call the CLI. `mdpm block` rejects empty reasons with a validation error anyway. A block without context rots in `/pm:status`.
+- If no reason is given, **ask** — don't call the CLI. `mdpm block` rejects empty reasons with a validation error anyway. A block without context rots in `/pm-status`.
 
 ## Interpreting the result
 
-- **ok: true** — confirm with a short summary. Tell the user the block will show up in `/pm:status` under Blockers until cleared with `/pm:edit PRJ-042 status=active` or the blocker command chain below.
-- **ok: false, error: "precondition_failed"** — can't block a task that's in `done/` or `archive/`. Suggest `/pm:new` for a follow-up.
+- **ok: true** — confirm with a short summary. Tell the user the block will show up in `/pm-status` under Blockers until cleared with `/pm-edit PRJ-042 status=active` or the blocker command chain below.
+- **ok: false, error: "precondition_failed"** — can't block a task that's in `done/` or `archive/`. Suggest `/pm-new` for a follow-up.
 
 ## External sync
 
-If the task has a `jira_id` or `wrike_id`, offer to push the block state as a comment to the external system via `/pm:sync-jira` or `/pm:sync-wrike`.
+If the task has a `jira_id` or `wrike_id`, offer to push the block state as a comment to the external system via `/pm-sync-jira` or `/pm-sync-wrike`.
 
 ## Unblocking
 
-To clear the block, use `/pm:unblock <ref>` — it restores `status:` to the directory-derived value and logs "Unblocked." in the work log.
+To clear the block, use `/pm-unblock <ref>` — it restores `status:` to the directory-derived value and logs "Unblocked." in the work log.
 
 ## Notes
 

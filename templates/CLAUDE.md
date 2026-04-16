@@ -15,8 +15,8 @@ This project uses **MDPM** (Markdown Project Manager), installed as a Claude Cod
 - `docs/DECISIONS.md` — architecture decision log
 - `docs/CHANGELOG.md` — shipped work
 
-**Start every session** by reading `docs/ROADMAP.md` to understand current priorities, then run `/pm:status` for a dashboard.
+**Start every session** by reading `docs/ROADMAP.md` to understand current priorities, then run `/pm-status` for a dashboard.
 
-**Commands:** `/pm:help` lists them all. Most-used: `/pm:status`, `/pm:next`, `/pm:new <title>`, `/pm:start <id>`, `/pm:done <id>`, `/pm:standup`.
+**Commands:** `/pm-help` lists them all. Most-used: `/pm-status`, `/pm-next`, `/pm-new <title>`, `/pm-start <id>`, `/pm-done <id>`, `/pm-standup`.
 
 The full conventions (task format, golden rules, sync behavior) are loaded automatically by the MDPM plugin — no need to reference an external path here.

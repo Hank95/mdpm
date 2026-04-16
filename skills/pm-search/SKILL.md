@@ -1,10 +1,10 @@
 ---
-name: pm:search
+name: pm-search
 description: Search tasks by title, tag, ID, assignee, or content
 argument-hint: "<query> [--status <state>] [--tag <tag>]"
 ---
 
-# /pm:search
+# /pm-search
 
 Find tasks matching a query. `$ARGUMENTS` is the search expression.
 

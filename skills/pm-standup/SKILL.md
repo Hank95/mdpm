@@ -1,10 +1,10 @@
 ---
-name: pm:standup
+name: pm-standup
 description: Generate a stakeholder-ready standup summary (yesterday / today / blockers)
 argument-hint: "[audience]"
 ---
 
-# /pm:standup
+# /pm-standup
 
 Produce a standup summary suitable for posting to Slack, email, or pasting into a Jira/Wrike update.
 
@@ -46,7 +46,7 @@ Argument `$1` (optional): audience — e.g., "engineering", "exec", "pm". Defaul
    - "pm" / "stakeholder": mention risks and dates, include any `due:` dates that are slipping.
 
 7. **Offer to push.** After showing the summary, ask:
-   > Want me to sync this to Jira/Wrike via `/pm:sync-jira` or `/pm:sync-wrike`, or are you copying it manually?
+   > Want me to sync this to Jira/Wrike via `/pm-sync-jira` or `/pm-sync-wrike`, or are you copying it manually?
 
 ## Notes
 

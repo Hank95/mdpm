@@ -1,10 +1,10 @@
 ---
-name: pm:sync-wrike
+name: pm-sync-wrike
 description: Sync task state with Wrike via MCP (optional, graceful degradation)
 argument-hint: "[push|pull|both]"
 ---
 
-# /pm:sync-wrike
+# /pm-sync-wrike
 
 Bridge MDPM tasks with Wrike. Works only if a Wrike MCP server is connected.
 
@@ -81,7 +81,7 @@ For each new Wrike task, create a file in `tasks/inbox/`:
 - `wrike_id`: the Wrike task ID
 - Populate objective from Wrike description
 
-Suggest `/pm:inbox` to triage.
+Suggest `/pm-inbox` to triage.
 
 ### 4. Report
 
@@ -90,7 +90,7 @@ Summarize what changed:
 Wrike sync complete:
 - Pushed 3 status updates
 - Created 1 new Wrike task (PRJ-123 → WRIKE-abc)
-- Pulled 2 new inbox items — run /pm:inbox to triage
+- Pulled 2 new inbox items — run /pm-inbox to triage
 ```
 
 ## Notes

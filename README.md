@@ -39,7 +39,7 @@ MDPM is a Claude Code plugin. Run these one at a time in a Claude Code session:
 Once installed, run inside any repo:
 
 ```
-/pm:config
+/pm-config
 ```
 
 That walks you through first-time setup (ID prefix, default assignee, optional sync config) and creates the `tasks/` and `docs/` layout.
@@ -50,7 +50,7 @@ That walks you through first-time setup (ID prefix, default assignee, optional s
 
 MDPM exposes the same operations two ways:
 
-- **`/pm:*` slash commands** — for interactive sessions where the user invokes the command and expects Claude to handle it step-by-step (confirming destructive operations, asking about ambiguous refs, etc.).
+- **`/pm-*` slash commands** — for interactive sessions where the user invokes the command and expects Claude to handle it step-by-step (confirming destructive operations, asking about ambiguous refs, etc.).
 - **`bin/mdpm` CLI** — a deterministic, stdlib-only Python CLI for scripts and for Claude to use inline. Every operation is atomic, appends work log entries automatically, validates input, and returns structured JSON on `--json`.
 
 Under the hood both surfaces go through `lib/mdpm_core.py` so the behavior is identical. If you're editing tasks inline mid-session, use the CLI (`python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm <cmd>`) — never `sed` / `mv` directly. The rules file shipped with the plugin tells Claude to do the same.
@@ -75,54 +75,54 @@ Run `mdpm --help` or `mdpm <command> --help` for full argument lists.
 
 ## Commands
 
-All slash commands are namespaced under `/pm:`.
+All slash commands are prefixed with `/pm-`.
 
 ### Daily use
 
 | Command | What it does |
 | --- | --- |
-| `/pm:status` | Dashboard — active work, priorities, blockers (vs waiting), overdue, recently shipped |
-| `/pm:next` | Recommends the single best task to start next |
-| `/pm:new <title>` | Creates a new backlog task with auto-incrementing ID |
-| `/pm:start <id>` | Moves a backlog task to `active/` and begins work |
-| `/pm:block <id> <reason>` | Marks a task blocked (status field) with a reason appended to the work log |
-| `/pm:done <id>` | Completes a task, moves to `done/`, checks for unblocked dependents |
-| `/pm:standup [audience]` | Generates a stakeholder-ready standup summary |
+| `/pm-status` | Dashboard — active work, priorities, blockers (vs waiting), overdue, recently shipped |
+| `/pm-next` | Recommends the single best task to start next |
+| `/pm-new <title>` | Creates a new backlog task with auto-incrementing ID |
+| `/pm-start <id>` | Moves a backlog task to `active/` and begins work |
+| `/pm-block <id> <reason>` | Marks a task blocked (status field) with a reason appended to the work log |
+| `/pm-done <id>` | Completes a task, moves to `done/`, checks for unblocked dependents |
+| `/pm-standup [audience]` | Generates a stakeholder-ready standup summary |
 
 ### Editing & finding
 
 | Command | What it does |
 | --- | --- |
-| `/pm:edit <id> [k=v…]` | Change priority, due date, tags, assignee, dependencies |
-| `/pm:search <query>` | Find tasks by title, tag, ID, assignee, or body content |
+| `/pm-edit <id> [k=v…]` | Change priority, due date, tags, assignee, dependencies |
+| `/pm-search <query>` | Find tasks by title, tag, ID, assignee, or body content |
 
 ### Planning & triage
 
 | Command | What it does |
 | --- | --- |
-| `/pm:plan <feature>` | Breaks a feature into 3–8 tasks with dependency mapping |
-| `/pm:inbox` | Walks through `tasks/inbox/` one item at a time |
+| `/pm-plan <feature>` | Breaks a feature into 3–8 tasks with dependency mapping |
+| `/pm-inbox` | Walks through `tasks/inbox/` one item at a time |
 
 ### Maintenance
 
 | Command | What it does |
 | --- | --- |
-| `/pm:archive [--older-than N]` | Moves aged `done/` tasks to `tasks/archive/` to reduce clutter |
-| `/pm:board [port]` | Prints the command to launch the local kanban board |
+| `/pm-archive [--older-than N]` | Moves aged `done/` tasks to `tasks/archive/` to reduce clutter |
+| `/pm-board [port]` | Prints the command to launch the local kanban board |
 
 ### Optional sync (requires an MCP server for the target system)
 
 | Command | What it does |
 | --- | --- |
-| `/pm:sync-jira [push\|pull\|both]` | Syncs task state with Jira via any connected Jira MCP |
-| `/pm:sync-wrike [push\|pull\|both]` | Syncs task state with Wrike via any connected Wrike MCP |
+| `/pm-sync-jira [push\|pull\|both]` | Syncs task state with Jira via any connected Jira MCP |
+| `/pm-sync-wrike [push\|pull\|both]` | Syncs task state with Wrike via any connected Wrike MCP |
 
 ### Setup / reference
 
 | Command | What it does |
 | --- | --- |
-| `/pm:config` | First-time setup (or reconfigure) |
-| `/pm:help` | Lists all commands |
+| `/pm-config` | First-time setup (or reconfigure) |
+| `/pm-help` | Lists all commands |
 
 ---
 
@@ -169,7 +169,7 @@ See `examples/gallery-page-component.md` for a real-world example.
 
 ---
 
-## Directory Layout (after `/pm:config`)
+## Directory Layout (after `/pm-config`)
 
 ```
 your-project/
@@ -260,13 +260,13 @@ Sync is an **optional bridge** for surfacing local task state to stakeholders. I
 | `wrike_id` | Task ID |
 | Work Log entries | Comments |
 
-To enable: install any Jira or Wrike MCP server (e.g. the official Atlassian MCP), register it in your `.mcp.json`, and run `/pm:sync-jira` or `/pm:sync-wrike`.
+To enable: install any Jira or Wrike MCP server (e.g. the official Atlassian MCP), register it in your `.mcp.json`, and run `/pm-sync-jira` or `/pm-sync-wrike`.
 
 ---
 
 ## Configuration
 
-`/pm:config` writes `.mdpm/config.json`:
+`/pm-config` writes `.mdpm/config.json`:
 
 ```json
 {
@@ -293,7 +293,7 @@ To enable: install any Jira or Wrike MCP server (e.g. the official Atlassian MCP
 }
 ```
 
-Edit this file directly to change behavior, or rerun `/pm:config`.
+Edit this file directly to change behavior, or rerun `/pm-config`.
 
 ---
 
@@ -310,7 +310,7 @@ Edit this file directly to change behavior, or rerun `/pm:config`.
 
 ## Troubleshooting
 
-**`/pm:help` returns `Unknown skill: pm:help` after install.** Your Claude Code version may be silently rejecting SKILL.md files because of an unrecognized frontmatter field. This was fixed in **v0.2.1**. Update and reinstall:
+**`/pm-help` returns `Unknown skill: pm:help` after install.** Your Claude Code version may be silently rejecting SKILL.md files because of an unrecognized frontmatter field. This was fixed in **v0.2.1**. Update and reinstall:
 
 ```
 /plugin marketplace update mdpm
@@ -327,7 +327,7 @@ If you're still on v0.2.0 or older, do a clean reinstall:
 /reload-plugins
 ```
 
-Verify by checking `/reload-plugins` output — the skill count should increase by 17 (the number of `/pm:*` commands MDPM ships).
+Verify by checking `/reload-plugins` output — the skill count should increase by 17 (the number of `/pm-*` commands MDPM ships).
 
 **`/plugin marketplace add` opens a TUI prompt on mobile / tmux sessions.** Paste only the source (e.g. `Hank95/mdpm`) — not the whole sequence of commands. Then run `/plugin install mdpm@mdpm` separately.
 
@@ -368,10 +368,10 @@ mdpm/
 ├── .claude-plugin/
 │   ├── plugin.json          # plugin manifest
 │   └── marketplace.json     # marketplace listing
-├── skills/                  # one /pm:<name> skill per subdirectory (SKILL.md)
+├── skills/                  # one /pm-<name> skill per subdirectory (SKILL.md)
 ├── rules/
 │   └── project-tracking.md  # full conventions (loaded into context)
-├── templates/               # files copied into user repos during /pm:config
+├── templates/               # files copied into user repos during /pm-config
 │   ├── CLAUDE.md
 │   ├── docs/
 │   └── tasks/

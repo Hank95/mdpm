@@ -1,10 +1,10 @@
 ---
-name: pm:plan
+name: pm-plan
 description: Break a feature or epic into 3-8 scoped tasks with dependency mapping
 argument-hint: "<feature description or task ID to decompose>"
 ---
 
-# /pm:plan
+# /pm-plan
 
 Decompose a feature into a set of tasks with proper sequencing.
 
@@ -45,8 +45,8 @@ Argument `$ARGUMENTS` is either:
 5. **Get confirmation.** Ask: "Create these as backlog tasks?" Let the user edit the plan before writing files. They may want to split/merge tasks, adjust priorities, or drop items.
 
 6. **Create the task files** once confirmed. For each task:
-   - Generate a unique ID using the same rules as `/pm:new` (scan all existing IDs, pick max + 1).
-   - Use the template from `/pm:new`, including the `<ID>-<slug>.md` filename convention.
+   - Generate a unique ID using the same rules as `/pm-new` (scan all existing IDs, pick max + 1).
+   - Use the template from `/pm-new`, including the `<ID>-<slug>.md` filename convention.
    - Populate `depends_on` with the correct IDs of sibling tasks.
    - Set `tags` consistently across the set (often a shared feature name).
    - Write to `tasks/backlog/`.
@@ -56,7 +56,7 @@ Argument `$ARGUMENTS` is either:
    - Update the parent task's notes to list the children.
    - Leave the parent in place — don't auto-close it. The user decides whether to keep it as a tracking umbrella or delete it.
 
-8. **Report back** with file paths created and the suggested first task to start. Offer `/pm:next` to confirm the sequence.
+8. **Report back** with file paths created and the suggested first task to start. Offer `/pm-next` to confirm the sequence.
 
 ## Notes
 

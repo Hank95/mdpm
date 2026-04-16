@@ -1,10 +1,10 @@
 ---
-name: pm:board
+name: pm-board
 description: Print the command to launch the local kanban board (does not start a background server)
 argument-hint: "[port]"
 ---
 
-# /pm:board
+# /pm-board
 
 Tell the user how to start the zero-dependency kanban board.
 
@@ -45,4 +45,4 @@ If the user has set up a shell alias (e.g. `alias mdpm="python3 ${CLAUDE_PLUGIN_
 ## Notes
 
 - **Do not start the server yourself.** It's long-running — backgrounding it inside this session would strand the process. Give the user a copy/pasteable command to run in their own terminal.
-- If the user previously opted into a local copy via an older `/pm:config` and has `./board/` in their repo, the plugin-path invocation still supersedes it. They can delete `./board/` if they want to eliminate the stale copy.
+- If the user previously opted into a local copy via an older `/pm-config` and has `./board/` in their repo, the plugin-path invocation still supersedes it. They can delete `./board/` if they want to eliminate the stale copy.

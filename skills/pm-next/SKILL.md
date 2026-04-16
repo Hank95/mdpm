@@ -1,10 +1,10 @@
 ---
-name: pm:next
+name: pm-next
 description: Recommend the next task to work on based on priority, dependencies, and due dates
 argument-hint: ""
 ---
 
-# /pm:next
+# /pm-next
 
 Pick the single best task to start next and explain why.
 
@@ -40,11 +40,11 @@ Format:
 Shall I move this to `tasks/active/` and get started?
 ```
 
-If the user says yes, invoke `/pm:start <id>`.
+If the user says yes, invoke `/pm-start <id>`.
 
 ## Fallbacks
 
-- **recommendation: null** — no unblocked backlog tasks. Say so plainly. Suggest `/pm:inbox` to triage or `/pm:plan` to plan new work.
+- **recommendation: null** — no unblocked backlog tasks. Say so plainly. Suggest `/pm-inbox` to triage or `/pm-plan` to plan new work.
 - **Active work already in flight** — mention it but let the user decide whether to context-switch.
 
 ## Notes

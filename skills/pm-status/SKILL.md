@@ -1,10 +1,10 @@
 ---
-name: pm:status
+name: pm-status
 description: Show project dashboard — active work, upcoming priorities, and blockers
 argument-hint: ""
 ---
 
-# /pm:status
+# /pm-status
 
 Read the project's task state and produce a concise dashboard.
 
@@ -42,7 +42,7 @@ Combine with `docs/ROADMAP.md` (read it via Read tool) to identify the current m
 - [PRJ-124] Title — priority, tags
 
 ## Inbox (<count> untriaged)
-- <titles only — suggest /pm:inbox to triage>
+- <titles only — suggest /pm-inbox to triage>
 
 ## Blockers
 - [PRJ-123] blocked — <reason from latest blocking log entry>

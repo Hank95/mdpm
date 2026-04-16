@@ -1,10 +1,10 @@
 ---
-name: pm:archive
+name: pm-archive
 description: Move aged completed tasks from tasks/done/ to tasks/archive/ to reduce clutter
 argument-hint: "[--older-than <days>] [--tag <tag>] [--all]"
 ---
 
-# /pm:archive
+# /pm-archive
 
 Move tasks from `tasks/done/` into `tasks/archive/` to reduce clutter while keeping them searchable.
 

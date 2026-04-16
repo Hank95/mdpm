@@ -1,10 +1,10 @@
 ---
-name: pm:done
+name: pm-done
 description: Complete a task — move to done/, append work log, update CHANGELOG, report unblocked dependents
 argument-hint: "<task id or partial title>"
 ---
 
-# /pm:done
+# /pm-done
 
 Mark a task complete. Argument `$ARGUMENTS` identifies the task.
 
@@ -32,15 +32,15 @@ Before calling `mdpm done`, run `mdpm --json show $ref` and look at `acceptance.
 - **ok: true, unblocked: [...]** — tasks that were waiting on this one are now ready. Tell the user:
   > Now that PRJ-042 is done, PRJ-045 ("Gallery Analytics Hooks") is ready to start. Want me to kick it off?
 - **warnings: ["N unchecked acceptance criteria remaining"]** — the CLI completes the task anyway but flags this. Mention it so the user knows.
-- **ok: false, error: "not_found" / "ambiguous_ref"** — handle like `/pm:start`.
-- **ok: false, error: "precondition_failed"** — usually "already in archive — cannot re-complete". Tell the user; suggest `/pm:new` if they want a follow-up.
+- **ok: false, error: "not_found" / "ambiguous_ref"** — handle like `/pm-start`.
+- **ok: false, error: "precondition_failed"** — usually "already in archive — cannot re-complete". Tell the user; suggest `/pm-new` if they want a follow-up.
 
 ## External sync
 
-If the task has a `jira_id` or `wrike_id` in its frontmatter (check via `mdpm show`), offer to push the completion to the external system via `/pm:sync-jira` or `/pm:sync-wrike`.
+If the task has a `jira_id` or `wrike_id` in its frontmatter (check via `mdpm show`), offer to push the completion to the external system via `/pm-sync-jira` or `/pm-sync-wrike`.
 
 ## Notes
 
 - The CLI writes the CHANGELOG entry automatically. Don't duplicate.
-- Never move a done task back to `active/` or `backlog/` — if the user wants to reopen, create a follow-up with `/pm:new`.
+- Never move a done task back to `active/` or `backlog/` — if the user wants to reopen, create a follow-up with `/pm-new`.
 - `--no-changelog` exists for cases where the user explicitly doesn't want the CHANGELOG touched (e.g. test tasks). Default behavior is to update it.

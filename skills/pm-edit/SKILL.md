@@ -1,10 +1,10 @@
 ---
-name: pm:edit
+name: pm-edit
 description: Edit a task's metadata (priority, due date, tags, assignee, dependencies)
 argument-hint: "<task id or partial title> [field=value ...]"
 ---
 
-# /pm:edit
+# /pm-edit
 
 Edit frontmatter fields on an existing task. `$ARGUMENTS` is the ID or title fragment, optionally followed by field updates.
 
@@ -45,7 +45,7 @@ Accept natural phrasing and map to CLI flags. Examples:
 
 ## Immutable fields
 
-The CLI refuses to change `id`, `created`, or `status` via `edit`. For status transitions, use `/pm:start`, `/pm:done`, `/pm:block`, or `/pm:move`.
+The CLI refuses to change `id`, `created`, or `status` via `edit`. For status transitions, use `/pm-start`, `/pm-done`, `/pm-block`, or `/pm-move`.
 
 ## Notes
 

@@ -64,7 +64,7 @@ Everything else is confirmatory — stay silent unless the user asked for a deta
 ### Examples of common sessions
 
 ```bash
-# Start work on what /pm:next would recommend:
+# Start work on what /pm-next would recommend:
 python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json next
 python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" start PRJ-042
 
@@ -81,7 +81,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" log PRJ-042 "finished happy-path integr
 python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" block PRJ-042 "waiting on SAML config from infra team"
 ```
 
-Tip: the user's `/pm:*` slash commands are thin wrappers for interactive sessions. When acting on the user's behalf mid-session (without them explicitly invoking a slash command), use the CLI directly — it does the same thing without the skill-to-Claude prompt overhead.
+Tip: the user's `/pm-*` slash commands are thin wrappers for interactive sessions. When acting on the user's behalf mid-session (without them explicitly invoking a slash command), use the CLI directly — it does the same thing without the skill-to-Claude prompt overhead.
 
 ---
 
@@ -93,7 +93,7 @@ tasks/
   backlog/   # queued work, prioritized
   active/    # in progress right now
   done/      # recently completed work — never delete from here
-  archive/   # aged-out completed tasks moved aside by /pm:archive
+  archive/   # aged-out completed tasks moved aside by /pm-archive
 docs/
   ROADMAP.md    # current milestone and future work
   DECISIONS.md  # architecture decision log (ADR)
@@ -105,7 +105,7 @@ docs/
 
 ## Filename Convention
 
-Every task file is named `<ID>-<kebab-slug>.md`, e.g. `PRJ-042-add-user-login.md`. The ID prefix makes tasks sortable and greppable from the filesystem. When a task's `title:` changes via `/pm:edit`, the file is renamed to keep the slug accurate.
+Every task file is named `<ID>-<kebab-slug>.md`, e.g. `PRJ-042-add-user-login.md`. The ID prefix makes tasks sortable and greppable from the filesystem. When a task's `title:` changes via `/pm-edit`, the file is renamed to keep the slug accurate.
 
 ## The Golden Rules
 
@@ -115,7 +115,7 @@ Every task file is named `<ID>-<kebab-slug>.md`, e.g. `PRJ-042-add-user-login.md
 4. **Never delete task files** — except rejected inbox items. Everything else moves to `done/` and stays there.
 5. **Work logs are append-only.** Never rewrite history.
 6. **IDs are permanent and unique.** Never reuse.
-7. **Small, focused tasks.** If a task would take more than a couple of days, decompose it with `/pm:plan`.
+7. **Small, focused tasks.** If a task would take more than a couple of days, decompose it with `/pm-plan`.
 
 ## Task File Format
 
@@ -133,8 +133,8 @@ due: YYYY-MM-DD | null
 tags: [tag1, tag2]
 depends_on: [PRJ-000] # IDs that must be in done/ before this can start
 assigned_to: name
-wrike_id: null        # populated by /pm:sync-wrike
-jira_id: null         # populated by /pm:sync-jira
+wrike_id: null        # populated by /pm-sync-wrike
+jira_id: null         # populated by /pm-sync-jira
 jira_project: null
 ---
 
@@ -156,36 +156,36 @@ Context, links, people to coordinate with.
 
 ## Typical Flow
 
-1. **Capture.** `/pm:new <title>` creates a backlog task. Inbox items come in via sync or direct drop.
-2. **Triage.** `/pm:inbox` walks through incoming items.
-3. **Plan.** `/pm:plan <feature>` breaks large work into sized tasks.
-4. **Pick.** `/pm:next` recommends what to start, or `/pm:status` shows the dashboard.
-5. **Start.** `/pm:start <id>` moves the task to `active/` and adds a "started work" log entry.
-6. **Work.** Update the work log as you go. `/pm:edit` adjusts metadata (priority, due, tags).
-7. **Ship.** `/pm:done <id>` moves to `done/`, checks dependents, updates CHANGELOG.
-8. **Report.** `/pm:standup` produces a stakeholder summary.
-9. **Find things.** `/pm:search <query>` across all tasks, any status.
-10. **Tidy.** `/pm:archive` periodically moves old `done/` tasks to `archive/`.
-11. **(Optional) Sync.** `/pm:sync-jira` / `/pm:sync-wrike` push status outward.
+1. **Capture.** `/pm-new <title>` creates a backlog task. Inbox items come in via sync or direct drop.
+2. **Triage.** `/pm-inbox` walks through incoming items.
+3. **Plan.** `/pm-plan <feature>` breaks large work into sized tasks.
+4. **Pick.** `/pm-next` recommends what to start, or `/pm-status` shows the dashboard.
+5. **Start.** `/pm-start <id>` moves the task to `active/` and adds a "started work" log entry.
+6. **Work.** Update the work log as you go. `/pm-edit` adjusts metadata (priority, due, tags).
+7. **Ship.** `/pm-done <id>` moves to `done/`, checks dependents, updates CHANGELOG.
+8. **Report.** `/pm-standup` produces a stakeholder summary.
+9. **Find things.** `/pm-search <query>` across all tasks, any status.
+10. **Tidy.** `/pm-archive` periodically moves old `done/` tasks to `archive/`.
+11. **(Optional) Sync.** `/pm-sync-jira` / `/pm-sync-wrike` push status outward.
 
 ## How Claude Should Behave
 
 When working in a repo that uses MDPM:
 
-- **Start sessions** by reading `docs/ROADMAP.md` to understand current priorities. Optionally run `/pm:status` to see active work.
-- **When asked to work on a feature**, check `tasks/active/` first for an existing task. If one covers the work, update it. If not, create one with `/pm:new` before writing code.
+- **Start sessions** by reading `docs/ROADMAP.md` to understand current priorities. Optionally run `/pm-status` to see active work.
+- **When asked to work on a feature**, check `tasks/active/` first for an existing task. If one covers the work, update it. If not, create one with `/pm-new` before writing code.
 - **Log progress.** When completing a meaningful chunk of work, append to the task's Work Log. Keep entries factual and brief.
 - **Update acceptance criteria** as you complete them — check the boxes.
 - **Move files**, don't copy. Status changes happen by moving the file between status directories.
-- **When you finish a task**, use `/pm:done` rather than manually moving files — it triggers dependent checks and CHANGELOG updates.
+- **When you finish a task**, use `/pm-done` rather than manually moving files — it triggers dependent checks and CHANGELOG updates.
 - **Don't create tasks for trivial, in-session work.** If it's less than 15 minutes of editing, just do it. Tasks are for things that cross sessions or need stakeholder visibility.
 
 ## Dependencies
 
 - `depends_on: [PRJ-123]` means "this task cannot start until PRJ-123 is in `done/`".
 - A task with unmet dependencies is **waiting**, not blocked. It's just sequenced.
-- A task with `status: blocked` is genuinely stuck on something external (review, missing info, another team). Treat these as high-signal in `/pm:status`.
-- When a task is completed, `/pm:done` automatically checks whether any dependent tasks are now unblocked and reports them.
+- A task with `status: blocked` is genuinely stuck on something external (review, missing info, another team). Treat these as high-signal in `/pm-status`.
+- When a task is completed, `/pm-done` automatically checks whether any dependent tasks are now unblocked and reports them.
 
 ## Priorities
 
@@ -216,7 +216,7 @@ Use the same tag names consistently across tasks in the same area.
 ## When Things Go Wrong
 
 - **Stale status field:** if a file is in `active/` but frontmatter says `status: backlog`, the directory wins. Update the frontmatter to match.
-- **Broken dependency:** if `depends_on` references an ID that doesn't exist anywhere, `/pm:status` will note it. Either fix the ID or remove the dependency.
+- **Broken dependency:** if `depends_on` references an ID that doesn't exist anywhere, `/pm-status` will note it. Either fix the ID or remove the dependency.
 - **Collision on ID:** two files with the same `id:` — scan `tasks/` with `grep -r "^id:"` and renumber the newer one.
 
 ## Sync

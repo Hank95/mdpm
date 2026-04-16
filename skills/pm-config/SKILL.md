@@ -1,10 +1,10 @@
 ---
-name: pm:config
+name: pm-config
 description: Initialize or reconfigure MDPM (ID prefix, task directories, sync preferences)
 argument-hint: ""
 ---
 
-# /pm:config
+# /pm-config
 
 First-time setup (or reconfiguration) for MDPM in the current repo.
 
@@ -16,7 +16,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
    - `.mdpm/config.json`
    - A `CLAUDE.md` at the repo root that references project tracking
 
-   If everything exists, tell the user "MDPM is already initialized. Run `/pm:config` to modify settings, or start with `/pm:status`."
+   If everything exists, tell the user "MDPM is already initialized. Run `/pm-config` to modify settings, or start with `/pm-status`."
 
 2. **Walk through setup.** Ask only what you need, one question at a time:
 
@@ -24,11 +24,11 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
 
    **b. Default assignee.** Who's the primary owner for new tasks? (Name, not email.)
 
-   **c. Stakeholder audiences.** (Optional.) For `/pm:standup` customization — names/titles of people who'll read the output. Skip if just for personal use.
+   **c. Stakeholder audiences.** (Optional.) For `/pm-standup` customization — names/titles of people who'll read the output. Skip if just for personal use.
 
    **d. Sync layer.** Do you plan to sync to Jira, Wrike, both, or neither? If one is selected:
       - For Jira: ask for the default project key (e.g. `ENG`).
-      - For Wrike: ask for a default folder (can be filled later via `/pm:sync-wrike`).
+      - For Wrike: ask for a default folder (can be filled later via `/pm-sync-wrike`).
       - Remind them they still need an MCP server configured for the sync to work automatically.
 
    **e. Kanban board.** The board is available two ways:
@@ -44,7 +44,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
      active/.gitkeep
      done/.gitkeep
      inbox/.gitkeep
-     archive/.gitkeep   # for /pm:archive to move aged done tasks into
+     archive/.gitkeep   # for /pm-archive to move aged done tasks into
    docs/
      ROADMAP.md       (if missing)
      DECISIONS.md     (if missing)
@@ -74,7 +74,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
 
 5. **Ensure `CLAUDE.md` has a Project Tracking section.** If a `CLAUDE.md` exists at the repo root, append the section below (don't clobber existing content). If not, create one by copying `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` into the repo root.
 
-   **Critical:** the block you write into the user's `CLAUDE.md` must NOT contain any `${CLAUDE_PLUGIN_ROOT}` references or absolute paths. The plugin loads its own rules file automatically when skills run — the project's `CLAUDE.md` just needs to orient Claude to the directory layout and point at `/pm:help`.
+   **Critical:** the block you write into the user's `CLAUDE.md` must NOT contain any `${CLAUDE_PLUGIN_ROOT}` references or absolute paths. The plugin loads its own rules file automatically when skills run — the project's `CLAUDE.md` just needs to orient Claude to the directory layout and point at `/pm-help`.
 
    Use this exact block (literally — do not expand any variables, do not insert absolute paths):
 
@@ -84,7 +84,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
    This project uses **MDPM** (Markdown Project Manager).
 
    Quick ref: `tasks/inbox/` untriaged, `tasks/backlog/` queued, `tasks/active/` in progress, `tasks/done/` shipped, `tasks/archive/` aged-out.
-   Run `/pm:help` to list commands, `/pm:status` for a dashboard.
+   Run `/pm-help` to list commands, `/pm-status` for a dashboard.
    ```
 
 6. **Kanban board setup** (follows from step 2e).
@@ -105,7 +105,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
    - If `.gitignore` exists but is missing the entry, append the two lines above.
    - If `.gitignore` doesn't exist, create one with just those lines. (Don't dump a kitchen-sink gitignore into someone's project.)
 
-8. **Confirm.** Print a summary of what was created, and suggest `/pm:new` to create the first task.
+8. **Confirm.** Print a summary of what was created, and suggest `/pm-new` to create the first task.
 
 ## Notes
 

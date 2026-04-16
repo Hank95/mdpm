@@ -6,7 +6,7 @@ Thanks for taking a look. MDPM is small on purpose — it's meant to stay lightw
 
 Please open an issue first if you're proposing:
 
-- A new skill (the surface area of `/pm:*` commands)
+- A new skill (the surface area of `/pm-*` commands)
 - A change to the task schema (frontmatter fields, filename convention)
 - Writeable endpoints on the kanban server
 - Anything that adds a runtime dependency (Python packages, npm, etc. — MDPM is stdlib-only by design)
@@ -34,7 +34,7 @@ Changes that violate these principles need a strong justification and a discussi
 .claude-plugin/       plugin.json + marketplace.json
 skills/pm-*/SKILL.md  one skill per slash command
 rules/                project-tracking.md — loaded into Claude's context
-templates/            files copied into user repos by /pm:config
+templates/            files copied into user repos by /pm-config
 board/                zero-dependency kanban (serve.py + board.html)
 examples/             sample task files
 ```
@@ -50,7 +50,7 @@ cd mdpm
 /plugin marketplace add .
 /plugin install mdpm
 /reload-plugins
-/pm:help
+/pm-help
 ```
 
 Edit a skill's `SKILL.md`, run `/reload-plugins`, re-invoke the skill. Iteration loop is fast because it's just markdown.
@@ -59,10 +59,10 @@ Edit a skill's `SKILL.md`, run `/reload-plugins`, re-invoke the skill. Iteration
 
 There's no formal test suite. Before opening a PR, exercise:
 
-1. A clean `/pm:config` in an empty git repo
-2. The full flow: `/pm:new` → `/pm:start` → `/pm:done`
-3. `/pm:status` output with a mix of backlog, active, blocked, and waiting tasks
-4. `/pm:sync-jira` and `/pm:sync-wrike` with no MCP connected — both must fall back to a copy/pasteable summary, not fail
+1. A clean `/pm-config` in an empty git repo
+2. The full flow: `/pm-new` → `/pm-start` → `/pm-done`
+3. `/pm-status` output with a mix of backlog, active, blocked, and waiting tasks
+4. `/pm-sync-jira` and `/pm-sync-wrike` with no MCP connected — both must fall back to a copy/pasteable summary, not fail
 5. The board: `python3 board/serve.py` — check that tasks render, filters work, auto-refresh picks up file changes
 
 If your change touches `serve.py`, also smoke-test:
@@ -73,7 +73,7 @@ python3 -c "from board.serve import load_all_tasks, parse_frontmatter; print('ok
 
 ## Commit style
 
-- Use the imperative mood ("Add /pm:block skill", not "Added /pm:block skill")
+- Use the imperative mood ("Add /pm-block skill", not "Added /pm-block skill")
 - First line under ~72 chars
 - Body optional but encouraged for anything non-trivial — explain *why*, not *what*
 
