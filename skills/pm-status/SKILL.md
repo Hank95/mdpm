@@ -1,7 +1,6 @@
 ---
 name: pm-status
 description: Show project dashboard — active work, upcoming priorities, and blockers
-argument-hint: ""
 ---
 
 # /pm-status
