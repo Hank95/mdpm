@@ -24,7 +24,13 @@ A lightweight, markdown-native project tracker for [Claude Code](https://claude.
 
 ## Install
 
-MDPM is a Claude Code plugin. Run these one at a time in a Claude Code session:
+MDPM is a Claude Code plugin. **Install it from within your project directory** so skills load in that project's context:
+
+```bash
+cd your-project/   # navigate to the repo you want to use MDPM in
+```
+
+Then in Claude Code (one command at a time):
 
 ```
 /plugin marketplace add Hank95/mdpm
@@ -32,7 +38,7 @@ MDPM is a Claude Code plugin. Run these one at a time in a Claude Code session:
 /reload-plugins
 ```
 
-> The `@mdpm` suffix disambiguates the plugin name from the marketplace name (both are `mdpm`); some Claude Code versions need it to resolve the install correctly.
+> **Scope matters.** Install from inside the project where you'll use MDPM. A global install may not load skills in per-project sessions. If `/pm-help` returns "Unknown skill" after install, reinstall from within the project directory.
 
 (Or clone the repo and point Claude Code at a local path — see [Development](#development).)
 
@@ -310,26 +316,24 @@ Edit this file directly to change behavior, or rerun `/pm-config`.
 
 ## Troubleshooting
 
-**`/pm-help` returns `Unknown skill: pm:help` after install.** Your Claude Code version may be silently rejecting SKILL.md files because of an unrecognized frontmatter field. This was fixed in **v0.2.1**. Update and reinstall:
+**`/pm-help` returns `Unknown skill: pm-help` after install.**
 
-```
-/plugin marketplace update mdpm
-/plugin update mdpm
-/reload-plugins
-```
+Most common cause: **wrong install scope.** MDPM must be installed from within the project directory where you'll use it. A global install shows the plugin as "installed" but skills don't load in per-project sessions.
 
-If you're still on v0.2.0 or older, do a clean reinstall:
+Fix: `cd` into your project, then clean-reinstall:
 
 ```
 /plugin uninstall mdpm
+/plugin marketplace remove mdpm
 /plugin marketplace add Hank95/mdpm
 /plugin install mdpm@mdpm
 /reload-plugins
+/pm-help
 ```
 
-Verify by checking `/reload-plugins` output — the skill count should increase by 17 (the number of `/pm-*` commands MDPM ships).
+If the skill count in `/reload-plugins` doesn't increase by 17, the install landed at the wrong scope. Make sure you're inside the project directory when you run the install commands.
 
-**`/plugin marketplace add` opens a TUI prompt on mobile / tmux sessions.** Paste only the source (e.g. `Hank95/mdpm`) — not the whole sequence of commands. Then run `/plugin install mdpm@mdpm` separately.
+**`/plugin marketplace add` opens a TUI prompt on mobile / tmux sessions.** Paste only the source (`Hank95/mdpm`) into the text box — not the whole sequence of commands. Then run `/plugin install mdpm@mdpm` separately.
 
 **Board server says port is busy.** `python3 board/serve.py` auto-walks forward to the next free port starting at 8765. Pass `--port <N>` to start somewhere else, or `--strict-port` to fail instead of falling back.
 
