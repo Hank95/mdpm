@@ -1,5 +1,10 @@
 # MDPM — Markdown Project Manager
 
+[![Version](https://img.shields.io/github/v/tag/Hank95/mdpm?label=version&sort=semver)](https://github.com/Hank95/mdpm/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-plugin-orange)](https://github.com/Hank95/mdpm)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue)](https://python.org)
+
 A lightweight, markdown-native project tracker for [Claude Code](https://claude.ai/code). Tasks live as `.md` files with YAML frontmatter; **status is a directory**. Zero dependencies. Optional Jira/Wrike sync via MCP.
 
 > For developers and hybrid PM/engineers who want the lightest possible tracking system that works equally well for humans and AI coding agents — and who occasionally need to surface status to stakeholders in Jira or Wrike without context-switching.
