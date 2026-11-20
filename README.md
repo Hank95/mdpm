@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/github/v/tag/Hank95/mdpm?label=version&sort=semver)](https://github.com/Hank95/mdpm/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-plugin-orange)](https://github.com/Hank95/mdpm)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue)](https://python.org)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)](https://python.org)
 
 A lightweight, markdown-native project tracker for [Claude Code](https://claude.ai/code). Tasks live as `.md` files with YAML frontmatter; **status is a directory**. Zero dependencies: a Python standard-library CLI, a local kanban board, and a handful of slash commands.
 
@@ -414,7 +414,7 @@ mdpm/
 ├── board/
 │   ├── board.html           # kanban UI
 │   └── serve.py             # stdlib HTTP server
-├── tests/                   # unittest suite (run in CI on Python 3.9 and 3.13)
+├── tests/                   # unittest suite (run in CI on Python 3.11 and 3.14)
 ├── examples/                # sample task files
 └── LICENSE
 ```

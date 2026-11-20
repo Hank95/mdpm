@@ -60,7 +60,7 @@ Edit a skill's `SKILL.md`, run `/reload-plugins`, re-invoke the skill. Iteration
 
 ## Testing
 
-The CLI, the core library, and the board server are covered by a standard-library test suite. Run it before opening a PR — CI runs the same command on Python 3.9 and 3.13:
+The CLI, the core library, and the board server are covered by a standard-library test suite. Run it before opening a PR — CI runs the same command on Python 3.11 and 3.14:
 
 ```bash
 python3 -m unittest discover -s tests
