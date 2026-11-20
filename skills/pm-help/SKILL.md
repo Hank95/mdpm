@@ -19,25 +19,24 @@ Daily use
   /pm-next                 Recommend the next task to start
   /pm-new <title>          Create a new backlog task
   /pm-start <id>           Move a backlog task to active and begin work
-  /pm-block <id> <reason>  Mark a task blocked with a reason
   /pm-done <id>            Complete a task, check for unblocked dependents
   /pm-standup [audience]   Generate a stakeholder-ready standup summary
-
-Editing & finding
-  /pm-edit <id> [k=v ...]  Change priority, due, tags, assignee, etc.
-  /pm-search <query>       Find tasks by title, tag, ID, assignee, or content
 
 Planning & triage
   /pm-plan <feature>       Break a feature into 3-8 tasks with dependencies
   /pm-inbox                Triage untriaged incoming requests
 
-Maintenance
-  /pm-archive [--older-than N]   Move aged done tasks to tasks/archive/
+Board
   /pm-board                Launch the local kanban board (opens browser)
 
-Optional sync (needs MCP)
+Experimental sync (needs a Jira or Wrike MCP server)
   /pm-sync-jira [push|pull|both]
   /pm-sync-wrike [push|pull|both]
+
+Everything else — just ask
+  Blocking, editing, searching and archiving have no slash command. Say what
+  you want ("block PRJ-042, waiting on Alice", "find tasks about auth",
+  "archive anything done over 30 days ago") and Claude runs the mdpm CLI.
 
 Reference
   /pm-help                 This help

@@ -27,7 +27,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json new "<title>" \
 2. **Detect priority hints**: "urgent", "high-priority", "blocker" → `--priority high`. "nice to have", "whenever" → `--priority low`. Otherwise omit (CLI defaults to medium).
 3. **Detect due dates**: "by Friday", "due 5/1", "end of month" → resolve to ISO date and pass via `--due`.
 4. **Detect tags**: if the user mentions an area ("this is for the billing feature", "frontend refactor"), include it in `--tags`.
-5. **Don't ask questions for trivial tasks.** Minimum viable: title + default priority. The user can edit later with `/pm-edit`.
+5. **Don't ask questions for trivial tasks.** Minimum viable: title + default priority. The user can ask to change it later (`mdpm edit`).
 
 ## Interpreting the result
 

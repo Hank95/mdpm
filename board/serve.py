@@ -43,10 +43,60 @@ import mdpm_core as core  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
+LOOPBACK_NAMES = ("127.0.0.1", "localhost", "::1")
+
+
+def _hostname(netloc: str) -> str:
+    """Hostname from a `host[:port]` value, lowercased, IPv6 brackets removed."""
+    return (urlparse(f"//{netloc}").hostname or "").lower()
+
+
+def host_allowed(host_header: str, bind_host: str) -> bool:
+    """Whether a request's Host header is one this server should answer to.
+
+    When bound to loopback, only loopback names are accepted. That defeats DNS
+    rebinding, where a hostile site re-resolves its own name to 127.0.0.1 and
+    the browser then treats the board as same-origin with that site. Binding
+    beyond loopback (--host 0.0.0.0) is an explicit opt-in to names we can't
+    enumerate, so the check is skipped there.
+    """
+    if bind_host not in LOOPBACK_NAMES:
+        return True
+    return _hostname(host_header) in LOOPBACK_NAMES
+
+
+def same_origin(origin: str, host_header: str) -> bool:
+    """Whether an Origin header names the same host:port the request was sent to."""
+    return urlparse(origin).netloc.lower() == host_header.lower()
+
+
 class BoardHandler(BaseHTTPRequestHandler):
-    server_version = "mdpm-board/0.4"
+    server_version = "mdpm-board"
     project_root: Path = Path(".")
     board_html: Path = Path("board.html")
+    bind_host: str = "127.0.0.1"
+
+    def _reject_foreign_host(self) -> bool:
+        """Send 403 and return True if the Host header isn't ours."""
+        if host_allowed(self.headers.get("Host") or "", self.bind_host):
+            return False
+        self._send(403, b"forbidden: unexpected Host header", "text/plain")
+        return True
+
+    def _reject_cross_site_write(self) -> bool:
+        """Send an error and return True unless this write came from the board
+        page itself. Browsers attach Origin to cross-site POSTs, and can only
+        send a JSON content type cross-site after a preflight we never answer.
+        """
+        origin = self.headers.get("Origin")
+        if origin and not same_origin(origin, self.headers.get("Host") or ""):
+            self._send(403, b"forbidden: cross-origin write", "text/plain")
+            return True
+        content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if content_type != "application/json":
+            self._send(415, b"Content-Type must be application/json", "text/plain")
+            return True
+        return False
 
     def log_message(self, fmt: str, *args):  # quieter logs
         sys.stderr.write("[%s] %s\n" % (time.strftime("%H:%M:%S"), fmt % args))
@@ -85,6 +135,8 @@ class BoardHandler(BaseHTTPRequestHandler):
         return candidate
 
     def do_GET(self):  # noqa: N802
+        if self._reject_foreign_host():
+            return
         path = urlparse(self.path).path
 
         if path in ("/", "/index.html"):
@@ -141,6 +193,8 @@ class BoardHandler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):  # noqa: N802
+        if self._reject_foreign_host() or self._reject_cross_site_write():
+            return
         path = urlparse(self.path).path
 
         if path.startswith("/api/task/"):
@@ -209,6 +263,16 @@ def _find_free_port(host: str, start: int, max_attempts: int = 20) -> int:
     raise OSError(f"No free port in range {start}..{start + max_attempts - 1} on {host}")
 
 
+def make_server(host: str, port: int, project_root: Path) -> ThreadingHTTPServer:
+    """Build a board server for `project_root`. Port 0 picks a free port."""
+    handler = type("Handler", (BoardHandler,), {
+        "project_root": Path(project_root).resolve(),
+        "board_html": HERE / "board.html",
+        "bind_host": host,
+    })
+    return ThreadingHTTPServer((host, port), handler)
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="MDPM kanban board server")
     parser.add_argument("--port", type=int, default=8765)
@@ -242,12 +306,9 @@ def main(argv: list[str]) -> int:
         else:
             project_root = cwd
 
-    BoardHandler.project_root = project_root
-    BoardHandler.board_html = HERE / "board.html"
-
     port = args.port
     try:
-        server = ThreadingHTTPServer((args.host, port), BoardHandler)
+        server = make_server(args.host, port, project_root)
     except OSError as exc:
         if args.strict_port:
             print(f"[mdpm] port {port} is busy: {exc}", file=sys.stderr)
@@ -261,7 +322,7 @@ def main(argv: list[str]) -> int:
             f"[mdpm] port {args.port} was busy; using {port} instead "
             f"(pass --strict-port to fail instead)"
         )
-        server = ThreadingHTTPServer((args.host, port), BoardHandler)
+        server = make_server(args.host, port, project_root)
 
     url = f"http://{args.host}:{port}"
     print(f"[mdpm] serving board from {project_root} at {url}")

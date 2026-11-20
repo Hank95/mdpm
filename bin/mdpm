@@ -680,7 +680,7 @@ def cmd_search(args) -> int:
             "id": (t["id"] or "").lower(),
             "title": (t["title"] or "").lower(),
             "tags": " ".join(t["tags"] or []).lower(),
-            "body": f"{t['objective']}\n{t['notes']}\n{t.get('latest_log', '')}".lower(),
+            "body": t["body"].lower(),
         }
         matched = [k for k, v in haystacks.items() if q in v]
         if matched:
@@ -807,6 +807,32 @@ def cmd_board(args) -> int:
     # Hand off to the server. os.execvp replaces this process so ctrl+c goes
     # directly to serve.py and nothing else is left running.
     os.execvp(sys.executable, serve_args)
+
+
+def cmd_session_context(args) -> int:
+    """Print the agent-facing rules if CWD is inside an MDPM project.
+
+    Run by the plugin's SessionStart hook, whose stdout Claude Code adds to
+    the session context. Prints nothing (and still exits 0) anywhere else, so
+    the plugin stays silent in projects that don't use MDPM.
+    """
+    root = core.find_mdpm_project()
+    if root is None:
+        return 0
+    plugin_root = HERE.parent
+    rules_path = plugin_root / "rules" / "project-tracking.md"
+    try:
+        rules = rules_path.read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    # Only the "use the CLI" section — the rest is reference material that
+    # isn't worth spending context on in every session.
+    brief = rules.split("\n---\n", 1)[0].strip()
+    brief = brief.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_root))
+    print(brief)
+    print(f"\nMDPM project root: {root}")
+    print(f"Full conventions (task format, dependencies, sync): {rules_path}")
+    return 0
 
 
 def cmd_status(args) -> int:
@@ -1001,6 +1027,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="don't auto-open the board URL in the browser",
     )
     p_board.set_defaults(func=cmd_board)
+
+    p_context = sub.add_parser(
+        "session-context",
+        help="print agent instructions when inside an MDPM project (used by the SessionStart hook)",
+    )
+    p_context.set_defaults(func=cmd_session_context)
+
+    # Accept the global flags after the subcommand too (`mdpm list --json`).
+    # SUPPRESS keeps a subparser from overwriting a value given before it.
+    for p in sub.choices.values():
+        p.add_argument("--json", action="store_true", default=argparse.SUPPRESS,
+                       help="emit JSON instead of human-readable output")
+        p.add_argument("--root", default=argparse.SUPPRESS,
+                       help="project root (defaults to walking up from CWD)")
 
     return parser
 
