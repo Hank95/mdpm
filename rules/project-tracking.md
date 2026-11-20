@@ -2,7 +2,7 @@
 
 This project uses **MDPM** (Markdown Project Manager). All task state lives in markdown files under `tasks/`. Status is a directory.
 
-Read this file in full before doing project management work in this repo.
+The first section below is the part that matters in every session. Read the rest of this file before planning, triage, or sync work.
 
 ## For Claude: Use the CLI, Not sed/mv
 
@@ -33,6 +33,8 @@ The CLI enforces every invariant automatically: atomic writes, work-log appends,
 | `mdpm next` | Recommend the next task (skips blocked, skips those with unmet deps) |
 | `mdpm status` | Dashboard: active, blocked, waiting, overdue |
 | `mdpm board [--port N] [--no-open]` | Launch the kanban board (opens browser by default) |
+
+`--json` and `--root` may go before or after the subcommand.
 
 `<ref>` accepts an exact ID (`PRJ-042`), a case-insensitive title substring (`"user login"`), or a filename fragment. Ambiguous refs exit 2 with a candidate list on stderr.
 
@@ -93,7 +95,7 @@ tasks/
   backlog/   # queued work, prioritized
   active/    # in progress right now
   done/      # recently completed work — never delete from here
-  archive/   # aged-out completed tasks moved aside by /pm-archive
+  archive/   # aged-out completed tasks moved aside by `mdpm archive`
 docs/
   ROADMAP.md    # current milestone and future work
   DECISIONS.md  # architecture decision log (ADR)
@@ -105,7 +107,7 @@ docs/
 
 ## Filename Convention
 
-Every task file is named `<ID>-<kebab-slug>.md`, e.g. `PRJ-042-add-user-login.md`. The ID prefix makes tasks sortable and greppable from the filesystem. When a task's `title:` changes via `/pm-edit`, the file is renamed to keep the slug accurate.
+Every task file is named `<ID>-<kebab-slug>.md`, e.g. `PRJ-042-add-user-login.md`. The ID prefix makes tasks sortable and greppable from the filesystem. When a task's `title:` changes via `mdpm edit --title`, the file is renamed to keep the slug accurate.
 
 ## The Golden Rules
 
@@ -161,11 +163,11 @@ Context, links, people to coordinate with.
 3. **Plan.** `/pm-plan <feature>` breaks large work into sized tasks.
 4. **Pick.** `/pm-next` recommends what to start, or `/pm-status` shows the dashboard.
 5. **Start.** `/pm-start <id>` moves the task to `active/` and adds a "started work" log entry.
-6. **Work.** Update the work log as you go. `/pm-edit` adjusts metadata (priority, due, tags).
+6. **Work.** Update the work log as you go. `mdpm edit` adjusts metadata (priority, due, tags).
 7. **Ship.** `/pm-done <id>` moves to `done/`, checks dependents, updates CHANGELOG.
 8. **Report.** `/pm-standup` produces a stakeholder summary.
-9. **Find things.** `/pm-search <query>` across all tasks, any status.
-10. **Tidy.** `/pm-archive` periodically moves old `done/` tasks to `archive/`.
+9. **Find things.** `mdpm search <query>` across all tasks, any status.
+10. **Tidy.** `mdpm archive` periodically moves old `done/` tasks to `archive/`.
 11. **(Optional) Sync.** `/pm-sync-jira` / `/pm-sync-wrike` push status outward.
 
 ## How Claude Should Behave
@@ -221,7 +223,9 @@ Use the same tag names consistently across tasks in the same area.
 
 ## Sync
 
-Jira and Wrike sync are **optional bridges**. MDPM works fully standalone.
+Jira and Wrike sync are **experimental, optional bridges**. MDPM works fully standalone.
+
+- Unlike the rest of MDPM, sync has no code behind it: the `/pm-sync-*` skills are instructions Claude follows using whatever MCP tools are connected. Confirm with the user before creating or transitioning external issues.
 
 - Sync is driven by MCP servers the user configures. MDPM skills discover available Jira/Wrike MCP tools at runtime rather than hardcoding specific server implementations.
 - When no MCP is connected, sync commands degrade gracefully: they print a copy/pasteable summary instead of failing.

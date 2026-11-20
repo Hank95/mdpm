@@ -41,7 +41,7 @@ TASK_FIELD_ORDER = [
 ]
 
 # Sections recognized in task bodies.
-SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+SECTION_RE = re.compile(r"^##\s+(.+?)\s*$")
 
 
 # ---------------------------------------------------------------------------
@@ -97,16 +97,72 @@ def find_project_root(start: Path | None = None) -> Path:
     )
 
 
+def find_mdpm_project(start: Path | None = None) -> Path | None:
+    """Walk upward from `start` (or CWD) to a directory that has opted in to
+    MDPM via `.mdpm/config.json`. Stricter than `find_project_root`: used
+    where a bare `tasks/` folder in an unrelated repo must not count.
+    """
+    here = (start or Path.cwd()).resolve()
+    for candidate in [here, *here.parents]:
+        if (candidate / ".mdpm" / "config.json").is_file():
+            return candidate
+    return None
+
+
 # ---------------------------------------------------------------------------
-# Frontmatter parsing (mirrors board/serve.py)
+# Frontmatter parsing
 # ---------------------------------------------------------------------------
+#
+# MDPM reads a deliberately small subset of YAML: `key: value` scalars, inline
+# `[a, b]` lists, `- item` block lists, quoted strings, `#` comments, and
+# `|` / `>` block scalars. Anything it rewrites goes through
+# `merge_frontmatter`, which leaves every line it was not asked to change
+# byte-identical — so YAML outside this subset survives a round trip even
+# though MDPM cannot interpret it.
 
 
 LIST_INLINE = re.compile(r"^\[(.*)\]$")
+_BLOCK_SCALAR = re.compile(r"^[|>][+-]?$")
+_DOUBLE_QUOTE_ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\"}
+
+
+def _strip_comment(value: str) -> str:
+    """Drop a trailing ` # comment`. A `#` only starts a comment at the start
+    of the value or after whitespace, and never inside quotes."""
+    quote = None
+    i = 0
+    while i < len(value):
+        ch = value[i]
+        if quote:
+            if ch == "\\" and quote == '"':
+                i += 1
+            elif ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "#" and (i == 0 or value[i - 1] in " \t"):
+            return value[:i]
+        i += 1
+    return value
+
+
+def _unquote_double(inner: str) -> str:
+    out = []
+    i = 0
+    while i < len(inner):
+        ch = inner[i]
+        if ch == "\\" and i + 1 < len(inner):
+            nxt = inner[i + 1]
+            out.append(_DOUBLE_QUOTE_ESCAPES.get(nxt, "\\" + nxt))
+            i += 2
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
 
 
 def _coerce(value: str) -> Any:
-    value = value.strip()
+    value = _strip_comment(value).strip()
     if value == "" or value.lower() in ("null", "~"):
         return None
     if value.lower() == "true":
@@ -119,20 +175,25 @@ def _coerce(value: str) -> Any:
         if not inner:
             return []
         return [_coerce(part) for part in _split_top_level(inner, ",")]
-    if (value.startswith('"') and value.endswith('"')) or (
-        value.startswith("'") and value.endswith("'")
-    ):
-        return value[1:-1]
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return _unquote_double(value[1:-1])
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
     return value
 
 
 def _split_top_level(s: str, sep: str) -> list[str]:
     """Split on sep while respecting brackets/quotes (shallow)."""
     out, buf, depth, quote = [], [], 0, None
-    for ch in s:
+    i = 0
+    while i < len(s):
+        ch = s[i]
         if quote:
             buf.append(ch)
-            if ch == quote:
+            if ch == "\\" and quote == '"' and i + 1 < len(s):
+                buf.append(s[i + 1])
+                i += 1
+            elif ch == quote:
                 quote = None
         elif ch in "\"'":
             quote = ch
@@ -148,49 +209,93 @@ def _split_top_level(s: str, sep: str) -> list[str]:
             buf = []
         else:
             buf.append(ch)
+        i += 1
     if buf:
         out.append("".join(buf).strip())
     return out
 
 
-def parse_frontmatter(text: str) -> tuple[dict, str]:
-    """Return (frontmatter_dict, body_text). Frontmatter is empty dict if absent."""
-    if not text.startswith("---"):
-        return {}, text
+def _split_document(text: str) -> tuple[list[str] | None, str]:
+    """Return (frontmatter_lines, body). frontmatter_lines is None when the
+    text has no well-formed `---` ... `---` block."""
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
-        return {}, text
-    end = None
+        return None, text
     for i, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
-            end = i
-            break
-    if end is None:
+            return lines[1:i], "\n".join(lines[i + 1 :])
+    return None, text
+
+
+def _is_key_line(line: str) -> bool:
+    return bool(line) and line[0] not in " \t#-" and ":" in line
+
+
+def _split_segments(fm_lines: list[str]) -> list[tuple[str | None, list[str]]]:
+    """Group frontmatter lines into (key, lines) segments. A segment is a
+    `key:` line plus the continuation lines under it; lines that belong to no
+    key (leading comments, blanks) get key None."""
+    segments: list[tuple[str | None, list[str]]] = []
+    for line in fm_lines:
+        if _is_key_line(line):
+            segments.append((line.partition(":")[0].strip(), [line]))
+        elif segments and not line.startswith("#"):
+            segments[-1][1].append(line)
+        else:
+            segments.append((None, [line]))
+    return segments
+
+
+def _block_scalar(style: str, lines: list[str]) -> str:
+    while lines and not lines[-1].strip():
+        lines = lines[:-1]
+    indent = min((len(ln) - len(ln.lstrip()) for ln in lines if ln.strip()), default=0)
+    lines = [ln[indent:] if ln.strip() else "" for ln in lines]
+    if style.startswith("|"):
+        return "\n".join(lines)
+    # Folded: single newlines become spaces, blank lines become newlines.
+    paragraphs, current = [], []
+    for ln in lines:
+        if ln:
+            current.append(ln.strip())
+        else:
+            paragraphs.append(" ".join(current))
+            current = []
+    paragraphs.append(" ".join(current))
+    return "\n".join(paragraphs)
+
+
+def _segment_value(lines: list[str]) -> Any:
+    head = lines[0].partition(":")[2]
+    rest = lines[1:]
+    marker = _strip_comment(head).strip()
+    if _BLOCK_SCALAR.match(marker):
+        return _block_scalar(marker, rest)
+    items = [ln.lstrip()[1:] for ln in rest if ln.lstrip().startswith("-")]
+    if marker == "" and items:
+        return [_coerce(item) for item in items]
+    return _coerce(head)
+
+
+def parse_frontmatter(text: str) -> tuple[dict, str]:
+    """Return (frontmatter_dict, body_text). Frontmatter is empty dict if absent."""
+    fm_lines, body = _split_document(text)
+    if fm_lines is None:
         return {}, text
-    fm_block = "\n".join(lines[1:end])
-    body = "\n".join(lines[end + 1 :])
     data: dict = {}
-    current_key = None
-    for raw in fm_block.splitlines():
-        if not raw.strip() or raw.lstrip().startswith("#"):
-            continue
-        if ":" in raw and not raw.lstrip().startswith("-"):
-            key, _, val = raw.partition(":")
-            key = key.strip()
-            data[key] = _coerce(val)
-            current_key = key
-        elif raw.lstrip().startswith("-") and current_key is not None:
-            val = _coerce(raw.lstrip()[1:].strip())
-            existing = data.get(current_key)
-            if not isinstance(existing, list):
-                data[current_key] = []
-            data[current_key].append(val)
+    for key, lines in _split_segments(fm_lines):
+        if key is not None:
+            data[key] = _segment_value(lines)
     return data, body
 
 
 # ---------------------------------------------------------------------------
 # Frontmatter rendering
 # ---------------------------------------------------------------------------
+
+
+_NEEDS_QUOTES = set(":#{}[],&*!|>'\"%@`\n\t")
+_RESERVED_WORDS = ("", "null", "~", "true", "false")
 
 
 def _render_value(v: Any) -> str:
@@ -205,29 +310,57 @@ def _render_value(v: Any) -> str:
     if isinstance(v, (int, float)):
         return str(v)
     s = str(v)
-    # Quote strings that contain YAML special chars
-    if any(c in s for c in ":#{}[],&*!|>'\"%@`") or s != s.strip():
-        escaped = s.replace("\\", "\\\\").replace('"', '\\"')
+    # Quote anything the parser would otherwise read back as something else.
+    if _NEEDS_QUOTES & set(s) or s != s.strip() or s.lower() in _RESERVED_WORDS:
+        escaped = (
+            s.replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\n", "\\n")
+            .replace("\t", "\\t")
+        )
         return f'"{escaped}"'
     return s
 
 
+def _ordered_keys(fm: dict) -> list[str]:
+    """Keys in TASK_FIELD_ORDER first; unknown keys follow in insertion order."""
+    known = [k for k in TASK_FIELD_ORDER if k in fm]
+    return known + [k for k in fm if k not in known]
+
+
 def render_frontmatter(fm: dict) -> str:
-    """Render a frontmatter dict back to the `---\\n...\\n---\\n` block.
-    Keys in TASK_FIELD_ORDER come first; unknown keys follow in insertion order.
-    """
-    seen = set()
+    """Render a frontmatter dict to a fresh `---\\n...\\n---\\n` block."""
     lines = ["---"]
-    for key in TASK_FIELD_ORDER:
-        if key in fm:
-            lines.append(f"{key}: {_render_value(fm[key])}")
-            seen.add(key)
-    for key, value in fm.items():
-        if key in seen:
-            continue
-        lines.append(f"{key}: {_render_value(value)}")
+    lines += [f"{key}: {_render_value(fm[key])}" for key in _ordered_keys(fm)]
     lines.append("---")
     return "\n".join(lines) + "\n"
+
+
+def merge_frontmatter(original_text: str, fm: dict) -> str:
+    """Render `fm` as a frontmatter block, reusing the lines of
+    `original_text`'s frontmatter wherever a field's value is unchanged.
+
+    Unchanged fields keep their exact original lines (comments, block lists,
+    block scalars, spacing). Changed fields are re-rendered on one line. Fields
+    absent from `fm` are dropped; fields new to `fm` are appended.
+    """
+    fm_lines, _ = _split_document(original_text)
+    if fm_lines is None:
+        return render_frontmatter(fm)
+    out = ["---"]
+    written = set()
+    for key, lines in _split_segments(fm_lines):
+        if key is None:
+            out += lines
+        elif key in fm:
+            written.add(key)
+            if _segment_value(lines) == fm[key]:
+                out += lines
+            else:
+                out.append(f"{key}: {_render_value(fm[key])}")
+    out += [f"{key}: {_render_value(fm[key])}" for key in _ordered_keys(fm) if key not in written]
+    out.append("---")
+    return "\n".join(out) + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -235,29 +368,60 @@ def render_frontmatter(fm: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
+_FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+
+
+def _section_headers(body: str) -> list[tuple[str, int, int]]:
+    """Return (name, header_start, header_end) for each `## Name` heading,
+    skipping lines inside fenced code blocks."""
+    headers = []
+    fence = None
+    pos = 0
+    for line in body.splitlines(keepends=True):
+        m = _FENCE.match(line)
+        if m:
+            marker = m.group(1)[0]
+            if fence is None:
+                fence = marker
+            elif fence == marker:
+                fence = None
+        elif fence is None:
+            h = SECTION_RE.match(line.rstrip("\r\n"))
+            if h:
+                headers.append((h.group(1).strip(), pos, pos + len(line.rstrip("\r\n"))))
+        pos += len(line)
+    return headers
+
+
+def _section_span(body: str, name: str) -> tuple[int, int] | None:
+    """Return (content_start, content_end) of the first `## name` section."""
+    headers = _section_headers(body)
+    for i, (title, _start, end) in enumerate(headers):
+        if title.lower() == name.lower():
+            next_start = headers[i + 1][1] if i + 1 < len(headers) else len(body)
+            return end, next_start
+    return None
+
+
 def extract_section(body: str, name: str) -> str:
     """Return the content of a '## Name' section. Empty string if absent."""
-    matches = list(SECTION_RE.finditer(body))
-    for i, m in enumerate(matches):
-        if m.group(1).strip().lower() == name.lower():
-            start = m.end()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(body)
-            return body[start:end].strip()
-    return ""
+    span = _section_span(body, name)
+    return body[span[0] : span[1]].strip() if span else ""
 
 
 def replace_section(body: str, name: str, new_content: str) -> str:
     """Replace a '## Name' section's content (everything from after the header
     up to the next '## ' or EOF). Appends the section at EOF if absent.
     """
-    matches = list(SECTION_RE.finditer(body))
-    for i, m in enumerate(matches):
-        if m.group(1).strip().lower() == name.lower():
-            start = m.end()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(body)
-            return body[:start] + "\n" + new_content.rstrip() + "\n\n" + body[end:].lstrip()
+    span = _section_span(body, name)
+    if span:
+        tail = body[span[1] :].lstrip()
+        section = body[: span[0]] + "\n" + new_content.rstrip() + "\n"
+        return section + ("\n" + tail if tail else "")
     # Section not found — append
-    sep = "\n\n" if body and not body.endswith("\n\n") else ""
+    if body and not body.endswith("\n"):
+        body += "\n"
+    sep = "\n" if body and not body.endswith("\n\n") else ""
     return body + sep + f"## {name}\n{new_content.rstrip()}\n"
 
 
@@ -466,10 +630,15 @@ def next_task_id(root: Path, prefix: str | None = None) -> str:
 
 
 def write_task_file(path: Path, fm: dict, body: str) -> None:
-    """Atomically write a task file. Ensures body has a trailing newline."""
+    """Atomically write a task file. Ensures body has a trailing newline.
+
+    If the file already exists, frontmatter lines whose values are unchanged
+    are preserved verbatim (see `merge_frontmatter`).
+    """
     if not body.endswith("\n"):
         body = body + "\n"
-    content = render_frontmatter(fm) + "\n" + body.lstrip("\n")
+    original = path.read_text(encoding="utf-8") if path.exists() else ""
+    content = merge_frontmatter(original, fm) + "\n" + body.lstrip("\n")
     atomic_write_text(path, content)
 
 
@@ -592,8 +761,10 @@ __all__ = [
     "PreconditionError",
     "ConflictError",
     "find_project_root",
+    "find_mdpm_project",
     "parse_frontmatter",
     "render_frontmatter",
+    "merge_frontmatter",
     "extract_section",
     "replace_section",
     "append_worklog",

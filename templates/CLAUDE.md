@@ -19,4 +19,4 @@ This project uses **MDPM** (Markdown Project Manager), installed as a Claude Cod
 
 **Commands:** `/pm-help` lists them all. Most-used: `/pm-status`, `/pm-next`, `/pm-new <title>`, `/pm-start <id>`, `/pm-done <id>`, `/pm-standup`.
 
-The full conventions (task format, golden rules, sync behavior) are loaded automatically by the MDPM plugin — no need to reference an external path here.
+The full conventions (task format, golden rules, sync behavior) are added to the session automatically by the MDPM plugin's SessionStart hook — no need to reference an external path here.

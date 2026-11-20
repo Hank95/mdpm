@@ -1,0 +1,15 @@
+{
+  "description": "Loads MDPM's agent rules at session start, only inside projects that have a .mdpm/config.json.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/mdpm\" session-context"
+          }
+        ]
+      }
+    ]
+  }
+}

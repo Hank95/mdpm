@@ -20,7 +20,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/bin/mdpm" --json start $ARGUMENTS
 The CLI returns JSON with `ok`, `task`, `changes`, `warnings`. Branch on:
 
 - **ok: false, error: "ambiguous_ref"** — the ref matched multiple tasks. The response includes `candidates`. Print them and ask the user which one they meant.
-- **ok: false, error: "not_found"** — no match. Suggest `/pm-list` or `/pm-search`.
+- **ok: false, error: "not_found"** — no match. Run `mdpm list` or `mdpm search <query>` to show the user what exists.
 - **ok: false, error: "precondition_failed"** — usually unmet dependencies. The message says which ones. Ask the user if they want to start anyway (re-run with `--force`) or start the dependency first.
 - **warnings: ["already active — no change"]** — tell the user and show the task's Work Log so they can see where they left off.
 - **ok: true** — confirm the move. Print the task id, title, and objective. Ask "What do you want to tackle first?"

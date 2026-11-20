@@ -1,9 +1,11 @@
 ---
-description: Sync task state with Wrike via MCP (optional, graceful degradation)
+description: (Experimental) Sync task state with Wrike via MCP (optional, graceful degradation)
 argument-hint: "[push|pull|both]"
 ---
 
 # /pm-sync-wrike
+
+> **Experimental.** This skill has no code behind it — you carry out the steps below with whatever Wrike MCP tools are connected, so results depend on that server. Before creating, updating, or transitioning anything in Wrike, show the user the list of changes you intend to make and get a yes.
 
 Bridge MDPM tasks with Wrike. Works only if a Wrike MCP server is connected.
 

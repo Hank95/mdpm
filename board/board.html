@@ -169,6 +169,7 @@
   .badge.pri-low { color: var(--lo); }
   .badge.due { color: var(--text-dim); }
   .badge.due.overdue { color: var(--danger); border-color: var(--danger); }
+  .badge.blocked { color: var(--bg, #0d1117); background: var(--danger); border-color: var(--danger); }
   .badge.tag { color: var(--accent); }
   .badge.ext { color: var(--text-dim); }
 
@@ -461,6 +462,9 @@ function renderCard(t) {
     : "";
 
   const badges = [];
+  if (t.status_field === "blocked") {
+    badges.push(`<span class="badge blocked">blocked</span>`);
+  }
   if (t.priority) {
     badges.push(`<span class="badge pri-${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>`);
   }
@@ -510,6 +514,7 @@ function renderModalView(t) {
     <div class="meta" style="color: var(--text-dim); font-size: 11px;">${escapeHtml(t.id || "")} · ${escapeHtml(t.status_dir)}</div>
     <h2>${escapeHtml(t.title)}</h2>
     <div class="meta-row">
+      ${t.status_field === "blocked" ? `<span class="badge blocked">blocked</span>` : ""}
       <span class="badge pri-${escapeHtml(t.priority || "medium")}">${escapeHtml(t.priority || "medium")}</span>
       ${t.due ? `<span class="badge due ${t.overdue ? "overdue" : ""}">${t.overdue ? "overdue " : "due "}${escapeHtml(t.due)}</span>` : ""}
       ${(t.tags || []).map(x => `<span class="badge tag">#${escapeHtml(x)}</span>`).join("")}

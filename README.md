@@ -1,13 +1,16 @@
 # MDPM — Markdown Project Manager
 
+[![Tests](https://github.com/Hank95/mdpm/actions/workflows/tests.yml/badge.svg)](https://github.com/Hank95/mdpm/actions/workflows/tests.yml)
 [![Version](https://img.shields.io/github/v/tag/Hank95/mdpm?label=version&sort=semver)](https://github.com/Hank95/mdpm/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-plugin-orange)](https://github.com/Hank95/mdpm)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue)](https://python.org)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)](https://python.org)
 
-A lightweight, markdown-native project tracker for [Claude Code](https://claude.ai/code). Tasks live as `.md` files with YAML frontmatter; **status is a directory**. Zero dependencies. Optional Jira/Wrike sync via MCP.
+A lightweight, markdown-native project tracker for [Claude Code](https://claude.ai/code). Tasks live as `.md` files with YAML frontmatter; **status is a directory**. Zero dependencies: a Python standard-library CLI, a local kanban board, and a handful of slash commands.
 
 > For developers and hybrid PM/engineers who want the lightest possible tracking system that works equally well for humans and AI coding agents — and who occasionally need to surface status to stakeholders in Jira or Wrike without context-switching.
+
+![The MDPM kanban board showing tasks in inbox, backlog, active and done columns](docs/board.png)
 
 ---
 
@@ -18,7 +21,7 @@ A lightweight, markdown-native project tracker for [Claude Code](https://claude.
 - **One file per task.** Claude can read or edit a single task without loading the whole system.
 - **Never delete history.** Task files move between directories; the work log is append-only.
 - **AI-friendly by design.** The conventions were written so Claude Code can do project management work alongside actual engineering work, in the same session.
-- **Optional Jira / Wrike bridges.** When you need stakeholder visibility, sync is one command away — but MDPM works 100% standalone if you never enable it.
+- **Experimental Jira / Wrike bridges.** For when stakeholders need to see status somewhere else. MDPM works 100% standalone if you never enable them.
 
 ---
 
@@ -50,16 +53,18 @@ Once installed, run inside any repo:
 
 That walks you through first-time setup (ID prefix, default assignee, optional sync config) and creates the `tasks/` and `docs/` layout.
 
+From then on, every Claude Code session started inside that repo gets MDPM's rules added to its context by a `SessionStart` hook, so Claude knows to use the CLI for task changes without being told. The hook prints nothing in repos that have no `.mdpm/config.json`.
+
 ---
 
 ## Two surfaces: slash commands and CLI
 
 MDPM exposes the same operations two ways:
 
-- **`/pm-*` slash commands** — for interactive sessions where the user invokes the command and expects Claude to handle it step-by-step (confirming destructive operations, asking about ambiguous refs, etc.).
-- **`bin/mdpm` CLI** — a deterministic, stdlib-only Python CLI for scripts and for Claude to use inline. Every operation is atomic, appends work log entries automatically, validates input, and returns structured JSON on `--json`.
+- **`/pm-*` slash commands** — for the operations where Claude's judgment adds something: a dashboard, a recommendation, breaking a feature into tasks, triaging an inbox, writing a standup.
+- **`bin/mdpm` CLI** — a deterministic, stdlib-only Python CLI for scripts and for Claude to use inline. Every operation is atomic, appends work log entries automatically, validates input, and returns structured JSON on `--json` (before or after the subcommand).
 
-Under the hood both surfaces go through `lib/mdpm_core.py` so the behavior is identical. If you're editing tasks inline mid-session, use the CLI (`python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm <cmd>`) — never `sed` / `mv` directly. The rules file shipped with the plugin tells Claude to do the same.
+The slash commands call the CLI, and the CLI and board share `lib/mdpm_core.py`, so there is one implementation of every rule. Operations without a slash command (block, edit, search, archive) need none: say "block PRJ-042, waiting on Alice" and Claude runs `mdpm block`. The session hook tells Claude to use the CLI rather than `sed` / `mv` on task files.
 
 Quick CLI tour:
 
@@ -91,16 +96,8 @@ All slash commands are prefixed with `/pm-`.
 | `/pm-next` | Recommends the single best task to start next |
 | `/pm-new <title>` | Creates a new backlog task with auto-incrementing ID |
 | `/pm-start <id>` | Moves a backlog task to `active/` and begins work |
-| `/pm-block <id> <reason>` | Marks a task blocked (status field) with a reason appended to the work log |
 | `/pm-done <id>` | Completes a task, moves to `done/`, checks for unblocked dependents |
 | `/pm-standup [audience]` | Generates a stakeholder-ready standup summary |
-
-### Editing & finding
-
-| Command | What it does |
-| --- | --- |
-| `/pm-edit <id> [k=v…]` | Change priority, due date, tags, assignee, dependencies |
-| `/pm-search <query>` | Find tasks by title, tag, ID, assignee, or body content |
 
 ### Planning & triage
 
@@ -109,14 +106,22 @@ All slash commands are prefixed with `/pm-`.
 | `/pm-plan <feature>` | Breaks a feature into 3–8 tasks with dependency mapping |
 | `/pm-inbox` | Walks through `tasks/inbox/` one item at a time |
 
-### Maintenance
+### Board
 
 | Command | What it does |
 | --- | --- |
-| `/pm-archive [--older-than N]` | Moves aged `done/` tasks to `tasks/archive/` to reduce clutter |
 | `/pm-board [port]` | Prints the command to launch the local kanban board |
 
-### Optional sync (requires an MCP server for the target system)
+### CLI only — just ask Claude, or run it yourself
+
+| CLI command | What it does |
+| --- | --- |
+| `mdpm block <id> <reason>` / `mdpm unblock <id>` | Marks a task blocked (status field) with the reason in the work log |
+| `mdpm edit <id> [--priority …] [--due …] [--tags …]` | Change title, priority, due date, tags, assignee, dependencies |
+| `mdpm search <query>` | Find tasks by ID, title, tag, or anything in the body |
+| `mdpm archive [--older-than N]` | Moves aged `done/` tasks to `tasks/archive/` to reduce clutter |
+
+### Experimental sync (requires an MCP server for the target system)
 
 | Command | What it does |
 | --- | --- |
@@ -171,7 +176,9 @@ Check with design on the approved mockup. Coordinate with infra if CDN changes a
 - 2026-04-10: Task created, scoped initial requirements
 ```
 
-See `examples/gallery-page-component.md` for a real-world example.
+See [`examples/PRJ-001-gallery-page-component.md`](examples/PRJ-001-gallery-page-component.md) for a full example.
+
+MDPM reads a small subset of YAML: `key: value` scalars, `[inline, lists]`, `- block` lists, quoted strings, `#` comments, and `|` / `>` block scalars. When it rewrites a task it only touches the lines for fields that changed, so comments, formatting, and any YAML it doesn't understand are left exactly as you wrote them.
 
 ---
 
@@ -216,19 +223,21 @@ The `board` subcommand locates `serve.py` inside the installed plugin and points
 - Pure Python stdlib (`http.server`)
 - Single-file HTML, dark terminal aesthetic
 - Four columns: Inbox, Backlog, Active, Done
-- Cards show priority, tags, due dates (with overdue warnings), acceptance progress
+- Cards show priority, tags, due dates (with overdue warnings), blocked state, acceptance progress
 - Click a card for the full objective, notes, and latest work log
 - **Inline editing**: the detail modal has an **Edit** button that opens the full raw markdown in a textarea. Save writes back to the file with conflict detection (mtime-based) — if the file changed on disk while you were editing, you'll be prompted to reload or overwrite. Cmd/Ctrl+S saves.
 - Auto-walks the port forward if the default (8765) is busy (use `--strict-port` to disable)
-- "Report bug" link in the header points to this repo's issue tracker
+- Refuses writes from other web origins and requests with a non-local `Host` header, so a page open in another tab can't edit your tasks through the board
 
-No build step, no npm, no watcher. Just run `serve.py`.
+No build step, no npm, no watcher.
 
 ---
 
-## Sync — Jira and Wrike
+## Sync — Jira and Wrike (experimental)
 
-Sync is an **optional bridge** for surfacing local task state to stakeholders. It runs on top of whatever Jira or Wrike MCP server you've configured in Claude Code.
+> **Experimental.** Unlike the rest of MDPM, sync has no code behind it. `/pm-sync-jira` and `/pm-sync-wrike` are instructions that Claude carries out with whatever Jira or Wrike MCP server you have connected, so behavior depends on that server and is not covered by the test suite. Claude lists the changes it intends to make and asks before touching the external system.
+
+Sync is an **optional bridge** for surfacing local task state to stakeholders.
 
 - **MCP-agnostic.** MDPM discovers available Jira/Wrike tools at runtime. It doesn't ship its own server.
 - **Graceful degradation.** If no MCP is connected, the sync command prints a copy/pasteable standup summary instead of failing.
@@ -309,8 +318,22 @@ Edit this file directly to change behavior, or rerun `/pm-config`.
 2. **Directories over fields.** Filesystem state is self-documenting; a stale `status:` frontmatter field doesn't lie about where a file lives.
 3. **Small, focused tasks.** If a task takes more than a couple of days, decompose it.
 4. **Append-only history.** Never rewrite work logs.
-5. **No lock-in.** Sync to Jira/Wrike is one-way, opt-in, and leaves your local state intact.
+5. **No lock-in.** Sync to Jira/Wrike is opt-in, and the markdown files stay the source of truth: pulled issues land in `inbox/` for triage rather than overwriting local tasks.
 6. **Claude-native.** Conventions written so an AI coding agent can do PM work alongside engineering in the same session.
+
+---
+
+## Engineering Notes
+
+A few decisions that shaped the code, and what they cost:
+
+- **A hand-written YAML subset instead of PyYAML.** Zero dependencies means the plugin works the moment it is installed, with no `pip` step inside someone else's project. The cost is that MDPM can't understand all of YAML — so it never re-serializes a whole file. Rewrites go through `merge_frontmatter`, which reuses the original lines for every field whose value didn't change. `tests/test_frontmatter.py` pins that down: an unchanged file must come back byte-identical.
+- **One core library, two front ends.** The CLI and the board server both import `lib/mdpm_core.py`, so "what is a task" and "how is it written" are defined once.
+- **Deterministic CLI under the slash commands.** Asking a model to move files and edit frontmatter by hand works most of the time, which isn't good enough for a tracker. Every mutation is a CLI call with an atomic write, stable JSON output, and distinct exit codes; the model decides *what* to do and the CLI does it.
+- **Rules arrive by hook, only where wanted.** `mdpm session-context` prints the agent rules only when it finds `.mdpm/config.json` at or above the working directory — a bare `tasks/` folder in an unrelated repo doesn't trigger it.
+- **The board treats the browser as hostile.** It is a localhost server with a write endpoint, so it checks `Host` (DNS rebinding) and `Origin` / `Content-Type` (cross-site POSTs). `tests/test_board.py` covers each case over a real socket.
+
+Known limits: no file locking, so two processes creating tasks at the same instant can race for an ID; and the Jira/Wrike sync is prompt-driven and untested (see above).
 
 ---
 
@@ -331,11 +354,11 @@ Fix: `cd` into your project, then clean-reinstall:
 /pm-help
 ```
 
-If the skill count in `/reload-plugins` doesn't increase by 17, the install landed at the wrong scope. Make sure you're inside the project directory when you run the install commands.
+If the skill count in `/reload-plugins` doesn't increase by 13, the install landed at the wrong scope. Make sure you're inside the project directory when you run the install commands.
 
 **`/plugin marketplace add` opens a TUI prompt on mobile / tmux sessions.** Paste only the source (`Hank95/mdpm`) into the text box — not the whole sequence of commands. Then run `/plugin install mdpm@mdpm` separately.
 
-**Board server says port is busy.** `python3 board/serve.py` auto-walks forward to the next free port starting at 8765. Pass `--port <N>` to start somewhere else, or `--strict-port` to fail instead of falling back.
+**Board server says port is busy.** `mdpm board` auto-walks forward to the next free port starting at 8765. Pass `--port <N>` to start somewhere else, or `--strict-port` to fail instead of falling back.
 
 ---
 
@@ -348,7 +371,7 @@ Users can pull new versions with:
 /plugin update mdpm
 ```
 
-Releases are tagged with semver git tags (e.g. `v0.2.0`). The `version` field in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` must match the tag.
+Releases are tagged with semver git tags (e.g. `v0.7.0`). The `version` field in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` must match the tag.
 
 ---
 
@@ -363,7 +386,13 @@ cd mdpm
 /plugin install ./mdpm
 ```
 
-Contributions welcome — open an issue or PR.
+Run the tests (standard library only — nothing to install):
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+Contributions welcome — open an issue or PR. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 Project structure:
 
@@ -372,9 +401,12 @@ mdpm/
 ├── .claude-plugin/
 │   ├── plugin.json          # plugin manifest
 │   └── marketplace.json     # marketplace listing
+├── bin/mdpm                 # the CLI
+├── lib/mdpm_core.py         # task parsing and file operations (shared by CLI and board)
 ├── skills/                  # one /pm-<name> skill per subdirectory (SKILL.md)
+├── hooks/hooks.json         # SessionStart hook: runs `mdpm session-context`
 ├── rules/
-│   └── project-tracking.md  # full conventions (loaded into context)
+│   └── project-tracking.md  # conventions; the hook injects the first section
 ├── templates/               # files copied into user repos during /pm-config
 │   ├── CLAUDE.md
 │   ├── docs/
@@ -382,6 +414,7 @@ mdpm/
 ├── board/
 │   ├── board.html           # kanban UI
 │   └── serve.py             # stdlib HTTP server
+├── tests/                   # unittest suite (run in CI on Python 3.11 and 3.14)
 ├── examples/                # sample task files
 └── LICENSE
 ```

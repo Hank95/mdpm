@@ -22,7 +22,7 @@ When in doubt, check the design decisions before proposing changes:
 3. **One file per task.** So Claude can read/edit tasks without loading everything.
 4. **Append-only work logs.** Never rewrite history.
 5. **Never delete task files** (except rejected inbox items).
-6. **Zero runtime dependencies** for the board. Python stdlib only.
+6. **Zero runtime dependencies.** Python stdlib only — for the CLI, the board, and the tests.
 7. **Sync is optional and MCP-agnostic.** Skills discover available Jira/Wrike MCPs at runtime; they never hardcode a specific server.
 8. **Graceful degradation.** If an optional integration isn't available, print a copy/pasteable summary instead of failing.
 
@@ -33,7 +33,10 @@ Changes that violate these principles need a strong justification and a discussi
 ```
 .claude-plugin/       plugin.json + marketplace.json
 skills/pm-*/SKILL.md  one skill per slash command
-rules/                project-tracking.md — loaded into Claude's context
+rules/                project-tracking.md — first section injected at session start
+hooks/                hooks.json — SessionStart hook that runs `mdpm session-context`
+bin/, lib/            the CLI and the core library it shares with the board
+tests/                unittest suite
 templates/            files copied into user repos by /pm-config
 board/                zero-dependency kanban (serve.py + board.html)
 examples/             sample task files
@@ -57,23 +60,26 @@ Edit a skill's `SKILL.md`, run `/reload-plugins`, re-invoke the skill. Iteration
 
 ## Testing
 
-There's no formal test suite. Before opening a PR, exercise:
+The CLI, the core library, and the board server are covered by a standard-library test suite. Run it before opening a PR — CI runs the same command on Python 3.11 and 3.14:
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+Bug fixes should come with a test that fails without the fix. If you touch frontmatter handling, the rule to preserve is in `tests/test_frontmatter.py`: rewriting a task must leave every line it didn't need to change byte-identical.
+
+Skills are prompts, so they can't be unit-tested. If you change one, exercise it by hand:
 
 1. A clean `/pm-config` in an empty git repo
 2. The full flow: `/pm-new` → `/pm-start` → `/pm-done`
 3. `/pm-status` output with a mix of backlog, active, blocked, and waiting tasks
 4. `/pm-sync-jira` and `/pm-sync-wrike` with no MCP connected — both must fall back to a copy/pasteable summary, not fail
-5. The board: `python3 board/serve.py` — check that tasks render, filters work, auto-refresh picks up file changes
 
-If your change touches `serve.py`, also smoke-test:
-
-```bash
-python3 -c "from board.serve import load_all_tasks, parse_frontmatter; print('ok')"
-```
+Validate the manifests with `claude plugin validate .`.
 
 ## Commit style
 
-- Use the imperative mood ("Add /pm-block skill", not "Added /pm-block skill")
+- Use the imperative mood ("Add /pm-plan skill", not "Added /pm-plan skill")
 - First line under ~72 chars
 - Body optional but encouraged for anything non-trivial — explain *why*, not *what*
 

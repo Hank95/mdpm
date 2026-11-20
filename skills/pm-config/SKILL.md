@@ -30,7 +30,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
       - Remind them they still need an MCP server configured for the sync to work automatically.
 
    **e. Kanban board.** The board is available two ways:
-   - **Recommended:** run it from the plugin directly (`python3 ${CLAUDE_PLUGIN_ROOT}/board/serve.py --root .`). Always current after `/plugin update mdpm`.
+   - **Recommended:** run it from the plugin directly (`python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm board`). Always current after `/plugin update mdpm`.
    - **Local copy:** drop `board.html` and `serve.py` into `board/` in the repo. Self-contained but goes stale after plugin updates — requires recopying.
 
    Default to the plugin-path approach (don't copy anything). Only copy the files if the user explicitly asks for a self-contained local install.
@@ -42,7 +42,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
      active/.gitkeep
      done/.gitkeep
      inbox/.gitkeep
-     archive/.gitkeep   # for /pm-archive to move aged done tasks into
+     archive/.gitkeep   # where `mdpm archive` moves aged done tasks
    docs/
      ROADMAP.md       (if missing)
      DECISIONS.md     (if missing)
@@ -72,7 +72,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
 
 5. **Ensure `CLAUDE.md` has a Project Tracking section.** If a `CLAUDE.md` exists at the repo root, append the section below (don't clobber existing content). If not, create one by copying `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` into the repo root.
 
-   **Critical:** the block you write into the user's `CLAUDE.md` must NOT contain any `${CLAUDE_PLUGIN_ROOT}` references or absolute paths. The plugin loads its own rules file automatically when skills run — the project's `CLAUDE.md` just needs to orient Claude to the directory layout and point at `/pm-help`.
+   **Critical:** the block you write into the user's `CLAUDE.md` must NOT contain any `${CLAUDE_PLUGIN_ROOT}` references or absolute paths. The plugin's SessionStart hook injects its rules whenever a session starts inside a directory with `.mdpm/config.json` — the project's `CLAUDE.md` just needs to orient Claude to the directory layout and point at `/pm-help`.
 
    Use this exact block (literally — do not expand any variables, do not insert absolute paths):
 
@@ -89,7 +89,7 @@ First-time setup (or reconfiguration) for MDPM in the current repo.
    - **Default (plugin-path):** don't copy anything into the repo. Tell the user:
      ```
      Run the board with:
-         python3 ${CLAUDE_PLUGIN_ROOT}/board/serve.py --root .
+         python3 ${CLAUDE_PLUGIN_ROOT}/bin/mdpm board
      ```
      Substitute the actual expanded plugin path when printing so it's runnable verbatim.
    - **Only if the user asked for a local copy:** copy `board.html` and `serve.py` from the plugin to a `board/` directory in the repo, and remind them they'll need to refresh those files manually after `/plugin update mdpm` or they'll miss UI improvements.
